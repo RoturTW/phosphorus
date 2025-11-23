@@ -1,0 +1,66 @@
+
+class RWLValue (
+  
+)
+
+class RWLStrValue extends RWLValue (
+  type = "str"
+  def init(string value) (
+    self.value @= value
+  )
+)
+
+class RWLNumValue extends RWLValue (
+  type = "num"
+  def init(number value) (
+    self.value @= value
+  )
+)
+
+class RWLPercentageValue extends RWLValue (
+  type = "percentage"
+  def init(number value) (
+    self.value @= value
+  )
+)
+
+class RWLColorValue extends RWLValue (
+  type = "color"
+  def init(string value) (
+    self.value @= value
+  )
+)
+
+def AstToValue(ast) (
+  switch ast.type (
+    case "str"
+      return rwl.value.RWLStrValue(ast.value)
+    case "num"
+      return rwl.value.RWLNumValue(ast.value)
+    case "percentage"
+      return rwl.value.RWLPercentageValue(ast.value)
+    case "color"
+      return rwl.value.RWLColorValue(ast.value)
+    case "property"
+      switch ast.source (
+        case "theme"
+          local col = shared.theme[ast.name]
+          if typeof(col) == "string" (
+            return rwl.value.RWLColorValue(col)
+          )
+          break
+        default
+          return rwl.error.Error("UnknownPropertySource", {
+            source: ast.source
+          })
+      )
+      return rwl.error.Error("UnknownProperty", {
+        property: ast.name,
+        source: ast.source
+      })
+    default
+      return rwl.error.Error("UnknownValueType", {
+        valueType: ast.type
+      })
+  )
+)

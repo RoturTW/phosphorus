@@ -1,0 +1,394 @@
+
+class Parser (
+  def init(string text) (
+    void self.tokenise(text)
+  )
+  
+  def parse() (
+    self.pointer = 1
+    
+    local out @= {
+      elements: self.blockContent()
+    }
+    
+    if !self.atEnd() (
+      throw "unexpected token '" ++ self.peek() ++ "'"
+    )
+    
+    return out
+  )
+  
+  def peek() (
+    return self.tokens[self.pointer]
+  )
+  def consume() (
+    local tkn = self.peek()
+    self.pointer ++
+    return tkn
+  )
+  def consumeWhitespace() (
+    while self.peek().match("/^\\s$/") != null (
+      void self.consume()
+    )
+  )
+  def consumeSpaces() (
+    local txt = ""
+    while self.peek() == " " (
+      txt ++= self.consume()
+    )
+    return txt
+  )
+  def atEnd() (
+    return self.pointer >= self.tokens.len
+  )
+  def expect(string token) (
+    local tkn @= self.consume()
+    if tkn != token (
+      throw "expected '" ++ token ++ "' got '" ++ tkn ++ "'"
+    )
+    return tkn
+  )
+  def expects(array tokens) (
+    local tkn @= self.consume()
+    if !tokens.contains(tkn) (
+      throw "expected '" ++ tokens.join(" or ") ++ "' got '" ++ tkn ++ "'"
+    )
+    return tkn
+  )
+  
+  def tokenise(string text) (
+    self.tokens @= []
+    local splitChars @= [
+      // rwl
+      "{","}",
+      "[","]",
+      ",",
+      " ",
+      "\n",
+      "/","\\","*",
+      "'","\"","`",
+      ":","#","%","=",
+      // rtr
+      "(",")",
+      "[","]",
+      "{","}",
+      ",",";",":","=",".",
+      "+","-","*","/","%","^",
+      "\\",
+      "'","\"","`",
+      " ","\n",
+      "!","?"
+    ]
+    local buf = ""
+    for i text.len (
+      if splitChars.contains(text[i]) (
+        if buf.len > 0 (
+          void self.tokens.append(buf)
+        )
+        void self.tokens.append(text[i])
+        buf = ""
+      ) else (
+        buf ++= text[i]
+      )
+    )
+    if buf.len > 0 (
+      self.tokens.append(buf)
+    )
+  )
+  
+  // statements
+  def blockContent() (
+    local statements @= []
+    local end = false
+    while !end (
+      local out @= self.statement()
+      if out != null (
+        void statements.append(out)
+      )
+      void self.consumeWhitespace()
+      if self.peek() == "}" or self.atEnd() (
+        end = true
+      ) else (
+        void self.expect(",")
+      )
+    )
+    return statements
+  )
+  
+  def statement() (
+    void self.consumeWhitespace()
+    
+    local tkn @= self.peek()
+    
+    // block
+    if tkn.match("/^[a-zA-Z]+$/") != null (
+      return self.blockStatement()
+    )
+    
+    // element
+    local value @= self.value()
+    if value != null (
+      void self.consumeWhitespace()
+      local header @= self.header()
+      
+      return {
+        data: {
+          value,
+          header
+        },
+        kind: "element"
+      }
+    )
+  )
+  
+  def blockStatement() (
+    local key @= self.consume()
+    
+    void self.consumeWhitespace()
+    
+    local header @= self.header()
+    header.key = key
+    
+    void self.consumeWhitespace()
+    
+    if key == "script" (
+      local content = ""
+      local spaceContent = ""
+      void self.expect("{")
+      local end = false
+      local depth = 1
+      local stringType = null
+      while !end (
+        local tkn @= self.peek()
+        
+        if tkn == "'" (
+          if stringType == "'" (
+            stringType = null
+          ) else if stringType == null (
+            stringType = "'"
+          )
+        )
+        
+        if tkn == "\"" (
+          if stringType == "\"" (
+            stringType = null
+          ) else if stringType == null (
+            stringType = "\""
+          )
+        )
+        
+        if tkn == "`" (
+          if stringType == "`" (
+            stringType = null
+          ) else if stringType == null (
+            stringType = "`"
+          )
+        )
+        
+        if stringType == null (
+          if tkn == "{" (
+            depth ++
+          )
+          if tkn == "}" (
+            depth --
+          )
+        )
+        
+        if self.atEnd() or (tkn == "}" and depth == 0 and stringType == null) (
+          end = true
+        ) else (
+          if tkn == "\n" (
+            spaceContent = ""
+            void self.consume()
+            if content != "" (
+              content ++= "\n"
+            )
+          ) else if tkn == " " (
+            spaceContent ++= self.consume()
+          ) else (
+            content ++= spaceContent
+            content ++= self.consume()
+            spaceContent = ""
+          )
+        )
+      )
+      void self.expect("}")
+    ) else (
+      local content @= self.block()
+    )
+    
+    return {
+      kind: "block",
+      data: {
+        header,
+        content
+      }
+    }
+  )
+  
+  def block() (
+    void self.expect("{")
+    void self.consumeWhitespace()
+    local elements @= self.blockContent()
+    void self.consumeWhitespace()
+    void self.expect("}")
+    return { elements }
+  )
+  
+  // header stuff
+  def header() (
+    local attributes @= []
+    if self.peek() == "[" (
+      void self.expect("[")
+      local end = self.peek() == "]"
+      while !end (
+        local out @= self.headerItem()
+        if out != null (
+          void attributes.append(out)
+        )
+        void self.consumeWhitespace()
+        if self.peek() == "," (
+          void self.consume()
+        )
+        if self.peek() == "]" or self.atEnd() (
+          end = true
+        )
+      )
+      void self.expect("]")
+    )
+    
+    return { attributes }
+  )
+  def headerItem() (
+    void self.consumeWhitespace()
+    local tkn @= self.consume()
+    void self.consumeWhitespace()
+    if self.peek() == "=" (
+      if tkn.match("/^[a-zA-Z_]+$/") == null (
+        throw "attribute key must consist of letters or _"
+      )
+      void self.consume()
+      local value @= self.value()
+      return {
+        kind: "key",
+        key: tkn,
+        value
+      }
+    )
+    if tkn.match("/^[a-zA-Z_]+$/") != null (
+      return {
+        kind: "flag",
+        data: tkn
+      }
+    )
+  )
+  
+  // values
+  def value() (
+    if ["'","\"","`"].contains(self.peek()) (
+      return self.str()
+    )
+    
+    if self.peek().match("/^[0-9]+$/") != null (
+      return self.num()
+    )
+    
+    if self.peek() == "#" (
+      return self.color()
+    )
+    
+    if self.peek().match("/^\\w+$/") != null (
+      return self.property()
+    )
+  )
+  
+  def str() (
+    local q @= self.expects(["'","\"","`"])
+    local content = ""
+    local end = false
+    while (!end) (
+      local tkn @= self.peek()
+      if tkn == "\\" (
+        void self.consume()
+        local tkn = self.consume()
+        local char = tkn[1]
+        switch char (
+          case "n"
+            char = "\n"
+            break
+        )
+        content ++= char ++ tkn.trim(2,-1)
+        continue
+      )
+      
+      if q == tkn (
+        end = true
+      ) else (
+        content ++= self.consume()
+      )
+      if self.atEnd() (
+        end = true
+      )
+    )
+    void self.expect(q)
+    return {
+      type: "str",
+      value: content
+    }
+  )
+  
+  // and percentage
+  def num() (
+    if self.peek().match("/^[0-9]+$/") == null (
+      throw "unexpected token '" ++ self.peek() ++ "'"
+    )
+    
+    local value @= self.consume().toNum()
+    
+    local type = "num"
+    
+    if self.peek() == "%" (
+      void self.consume()
+      type = "percentage"
+    )
+    
+    return {
+      type,
+      value
+    }
+  )
+  
+  def color() (
+    void self.expect("#")
+    local value = self.consume()
+    if ![3,6].contains(value.len) (
+      throw "hex values can only be 3 or 6 characters long"
+    )
+    return {
+      type: "color",
+      value: "#" ++ value
+    }
+  )
+  
+  def property() (
+    local source = self.consume()
+    if source.match("/^[a-zA-Z_]+$/") == null (
+      throw "source must consist of letters or _"
+    )
+    
+    void self.consumeWhitespace()
+    void self.expect(":")
+    void self.consumeWhitespace()
+    
+    local name = self.consume()
+    if name.match("/^[a-zA-Z_]+$/") == null (
+      throw "name must consist of letters or _"
+    )
+    
+    return {
+      type: "property",
+      source,
+      name
+    }
+  )
+)

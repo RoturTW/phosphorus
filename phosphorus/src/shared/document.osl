@@ -1,0 +1,93 @@
+
+class Document (
+  def init() (
+    self.createInsts()
+  )
+  
+  def createInsts() (
+    self.title = "New Tab"
+    if self.url != null (
+      self.title = self.url.getTitle()
+    )
+    self.icon = null
+    
+    self.rtrInst @= rtr.main.RTR()
+    self.rwlInst @= rwl.main.RWL(shared.document.empty, self.rtrInst)
+  )
+  
+  def updateInsts() (
+    // inject rwl apis
+    void rtr.rwl.addToInst(self, self.rtrInst)
+    
+    // start onloads
+    void self.rtrInst.startModules()
+  )
+  
+  def update(array area) (
+    void self.checkResp()
+    void self.rwlInst.update(area)
+  )
+  
+  def render(array area) (
+    void self.checkResp()
+    
+    if self.loading (
+      goto rwl.area.centerX(area) rwl.area.centerY(area)
+      direction timer * 720
+      icon "sync" .75 : c#shared.theme.text
+      return
+    )
+    
+    void self.rwlInst.render(area)
+  )
+  
+  def checkResp() (
+    if self.resp == null (
+      self.loading = false
+      return
+    )
+    
+    if self.resp.isFinished (
+      if self.resp.isValid (
+        self.loading = false
+        
+        void self.createInsts()
+        void self.loadText(self.resp.content)
+        
+        self.resp = null
+      )
+    ) else (
+      self.loading = true
+      void self.resp.update()
+    )
+  )
+  
+  def loadAst(object ast) (
+    void self.createInsts()
+    void self.rwlInst.loadFromAst(ast)
+    void self.updateInsts()
+  )
+  
+  def loadText(string text) (
+    local parser @= rwl.ast.Parser(text)
+    void self.loadAst(parser.parse())
+  )
+  
+  def loadUrl(object url) (
+    self.url @= url
+    void self.createInsts()
+    self.resp @= net.fetch.url(url)
+  )
+  
+  def getIcon() (
+    return self.icon
+  )
+  def getTitle() (
+    return self.title
+  )
+)
+
+def init() (
+  local parser @= rwl.ast.Parser(import("./src/assets/empty.rwl"))
+  self.empty @= parser.parse()
+)

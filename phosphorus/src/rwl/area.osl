@@ -1,0 +1,20 @@
+
+def copy(area) (
+  return [area[1], area[2], area[3], area[4]]
+)
+
+def centerX(area) (
+  return area[1] + area[3] / 2
+)
+
+def centerY(area) (
+  return area[2] + area[4] / 2
+)
+
+def width(area) (
+  return area[3] - area[1]
+)
+
+def height(area) (
+  return area[4] - area[2]
+)

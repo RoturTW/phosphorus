@@ -1,0 +1,653 @@
+
+debug = false
+
+class RWLNode (
+  def update() (
+    
+  )
+  
+  def render() (
+    
+  )
+  
+  def expectOnHeader(string key, string type) (
+    for attrI self.header.pairs.len (
+      local attr @= self.header.pairs[attrI]
+      if attr[2].isError (
+        return attr[2]
+      )
+      if attr[1] == key (
+        if attr[2].type != type (
+          return rwl.error.Error("ValueTypeMismatch", {
+            wanted: type,
+            got: attr[2].type
+          })
+        ) else (
+          return attr[2]
+        )
+      )
+    )
+    return null
+  )
+)
+
+class RWLContainer extends RWLNode (
+  kind = "block"
+  def init(array children, object header) (
+    self.children @= children
+    self.header @= header
+  )
+  
+  def update(array area, object context) (
+    void self.updateBackground(area)
+    
+    local childArea @= rwl.area.copy(area)
+    
+    local childPaddingL = 0
+    local childPaddingR = 0
+    local childPaddingB = 0
+    local childPaddingT = 0
+    
+    for i self.header.pairs.len (
+      local pair @= self.header.pairs[i]
+      local value @= pair[2]
+      
+      switch pair[1] (
+        case "padding"
+          childPaddingL = value.value
+          childPaddingR = value.value
+          childPaddingB = value.value
+          childPaddingT = value.value
+          break
+        case "padding_x"
+          childPaddingL = value.value
+          childPaddingR = value.value
+          break
+        case "padding_y"
+          childPaddingB = value.value
+          childPaddingT = value.value
+          break
+        case "padding_l"
+          childPaddingL = value.value
+          break
+        case "padding_r"
+          childPaddingR = value.value
+          break
+        case "padding_b"
+          childPaddingB = value.value
+          break
+        case "padding_t"
+          childPaddingT = value.value
+          break
+      )
+    )
+    
+    childArea[1] += childPaddingL
+    childArea[2] += childPaddingB
+    childArea[3] -= childPaddingR
+    childArea[4] -= childPaddingT
+    
+    self.area @= area
+    self.childArea @= childArea
+    
+    return rwl.main.UpdateElements(self.children, childArea, {
+      x: rwl.area.centerX(childArea),
+      y: rwl.area.centerY(childArea),
+      anchorX: "c",
+      anchorY: "c",
+      color: "#fff",
+      inst: context.inst
+    })
+  )
+  
+  def updateBackground(area) (
+    self.area @= area
+    local color @= self.expectOnHeader("color", "color")
+    
+    if color != null (
+      self.color @= color.value
+    )
+    
+    local allRounding @= self.expectOnHeader("rounding", "num")
+    
+    local rounding @= allRounding.value ?? 0
+    
+    local corners @= ["tl","tr","bl","br"]
+    for i corners.len (
+      local corner @= self.expectOnHeader("rounding_" ++ corners[i], "num")
+      if corner != null (
+        if typeof(rounding) != "array" (
+          rounding @= []
+          loop i - 1 (
+            void rounding.append(allRounding.value ?? 0)
+          )
+        )
+        void rounding.append(corner.value ?? 0)
+      ) else (
+        void rounding.append(allRounding.value ?? 0)
+      )
+    )
+    self.rounding @= rounding
+  )
+  
+  def render() (
+    void self.renderBackground()
+    //void rwl.debug.box(self.area)
+    //void rwl.debug.box(self.childArea, #0f0)
+    void rwl.main.RenderElements(self.children)
+  )
+  
+  def renderBackground() (
+    if self.color != null (
+      void shared.graphics.filledBox(self.area, self.rounding, self.color)
+    )
+  )
+)
+
+class RWLRoot extends RWLContainer (
+  def init(array children, object header) (
+    self.children @= children
+    self.header @= header
+  )
+)
+
+class RWLFrame extends RWLContainer (
+  def init(array children, object header) (
+    self.children @= children
+    self.header @= header
+  )
+  
+  def update(array area, object context) (
+    void self.updateBackground()
+    local dir = "x"
+    local flipped = false
+    for flagI self.header.flags.len (
+      switch self.header.flags[flagI] (
+        case "Horizontal"
+          dir = "x"
+          break
+        case "Vertical"
+          dir = "y"
+          break
+        case "Flipped"
+          flipped = !flipped
+          break
+      )
+    )
+    
+    local amount = 0
+    if dir == "x" (
+      local total = rwl.area.width(area)
+    ) else if dir == "y" (
+      local total = rwl.area.height(area)
+    )
+    
+    local frameContext @= {
+      inst: context.inst
+    }
+    
+    for i self.children.len (
+      local child @= self.children[i]
+      if child.kind == "block" (
+        
+        local childMarginL = 0
+        local childMarginR = 0
+        local childMarginB = 0
+        local childMarginT = 0
+        
+        // defaults to remaining
+        local size = total - amount
+        local pairs @= child.header.pairs
+        for pairI pairs.len (
+          local pair @= pairs[pairI]
+          local value @= pair[2]
+          if pair[1] == "size" or (pair[1] == "width" and dir == "x") or (pair[1] == "height" and dir == "y") (
+            switch value.type (
+              case "num"
+                size = value.value
+                break
+              case "percentage"
+                size = value.value / 100 * (total - amount)
+                break
+              default
+                return rwl.error.Error("ValueTypeMismatch", {
+                  wanted: ["num", "percentage"],
+                  got: value.type
+                })
+            )
+            break
+          )
+          
+          switch pair[1] (
+            case "margin"
+              childMarginL = value.value
+              childMarginR = value.value
+              childMarginB = value.value
+              childMarginT = value.value
+              break
+            case "margin_x"
+              childMarginL = value.value
+              childMarginR = value.value
+              break
+            case "margin_y"
+              childMarginB = value.value
+              childMarginT = value.value
+              break
+            case "margin_l"
+              childMarginL = value.value
+              break
+            case "margin_r"
+              childMarginR = value.value
+              break
+            case "margin_b"
+              childMarginB = value.value
+              break
+            case "margin_t"
+              childMarginT = value.value
+              break
+          )
+        )
+        
+        if dir == "x" (
+          local childArea @= [
+            (flipped ? (area[3] - amount - size) (area[1] + amount)) + childMarginL,
+            area[2] + childMarginB,
+            (flipped ? (area[3] - amount) (area[1] + amount + size)) - childMarginR,
+            area[4] - childMarginT
+          ]
+        ) else if dir == "y" (
+          local childArea @= [
+            area[1] + childMarginL,
+            (flipped ? (area[2] + amount) (area[4] - amount - size)) + childMarginB,
+            area[3] - childMarginR,
+            (flipped ? (area[2] + amount + size) (area[4] - amount)) - childMarginT
+          ]
+        )
+        
+        local out @= child.update(childArea, frameContext)
+        if out.isError (
+          return out
+        )
+        
+        amount += size
+      )
+    )
+  )
+  
+  def render() (
+    void self.renderBackground()
+    void rwl.main.RenderElements(self.children)
+  )
+)
+
+class RWLSection extends RWLContainer (
+  def init(array children, object header) (
+    self.children @= children
+    self.header @= header
+  )
+)
+
+class RWLScript extends RWLNode (
+  kind = "script"
+  def init(body, object header, object inst) (
+    self.body @= body
+    self.header @= header
+    
+    void self.parse()
+    void self.makeModule(inst)
+  )
+  
+  def parse() (
+    self.ast @= null
+    // TODO: try
+    local parser @= rtr.ast.Parser(body)
+    self.ast @= parser.parse()
+  )
+  
+  def makeModule(object inst) (
+    if self.ast != null (
+      self.mod @= rtr.main.Module(self.ast)
+      void inst.rtrInst.addModule(self.mod)
+    )
+  )
+  
+  def update(array area, object context) (
+    if self.mod != null (
+      void self.mod.runEvent("onupdate", {})
+    )
+  )
+)
+
+class RWLElement extends RWLNode (
+  kind = "element"
+  def init(object value, object header) (
+    self.value @= value
+    self.header @= header
+  )
+  
+  def update(array area, object context) (
+    local text = null
+    
+    switch self.value.type (
+      case "str"; case "num"
+        text = self.value.value.toStr()
+        break
+    )
+    
+    if text == null (
+      return rwl.error.Error("InvalidElemType", {
+        valueType: self.value.type
+      })
+    )
+    
+    // font
+    //<font>
+    local size @= self.expectOnHeader("size", "num")
+    if size.isError (
+      return size
+    )
+    size = size["value"] ?? 10
+    
+    local spacing @= self.expectOnHeader("spacing", "num")
+    if spacing.isError (
+      return spacing
+    )
+    spacing = spacing["value"] ?? 1
+    
+    local line_height @= self.expectOnHeader("line_height", "num")
+    if line_height.isError (
+      return line_height
+    )
+    line_height = spacing["line_height"] ?? 1
+    
+    // positioning
+    local padding @= self.expectOnHeader("padding", "num")
+    if padding.isError (
+      return padding
+    )
+    padding = padding["value"] ?? 0
+    
+    local anchor @= self.expectOnHeader("anchor", "str")
+    if anchor.isError (
+      return anchor
+    )
+    anchor = anchor["value"]
+    
+    if anchor != null (
+      if ["tl","t","tr",
+          "l","c","r",
+          "bl","b","br",
+          "top left", "top", "top right",
+          "left", "center", "right",
+          "bottom left", "bottom", "bottom right"].contains(anchor).not() (
+        return rwl.error.Error("InvalidAnchorName", {
+          name: anchor
+        })
+      )
+      
+      local anchorX = rwl.area.centerX(area)
+      local anchorY = rwl.area.centerY(area) + (line_height * 1 * size)
+      local anchorXType = "c"
+      local anchorYType = "c"
+      
+      if anchor.endsWith("l") or anchor.endsWith("left") (
+        anchorX = area[1] + padding
+        anchorXType = "l"
+      )
+      if anchor.endsWith("r") or anchor.endsWith("right") (
+        anchorX = area[3] - padding
+        anchorXType = "r"
+      )
+      
+      if anchor.startsWith("t") or anchor.endsWith("top") (
+        anchorY = area[4] - padding
+        anchorYType = "t"
+      )
+      if anchor.startsWith("b") or anchor.endsWith("bottom") (
+        anchorY = area[2] + padding
+        anchorYType = "b"
+      )
+      
+      context.x = anchorX
+      context.y = anchorY
+      context.anchorX = anchorXType
+      context.anchorY = anchorYType
+    )
+    
+    local boxAlignment = context.anchorX
+    
+    local alignment @= self.expectOnHeader("alignment", "str")
+    if alignment.isError (
+      return alignment
+    )
+    alignment = alignment["value"]
+    if alignment != null (
+      if ["l","c","r",
+          "left", "center", "right"].contains(alignment).not() (
+        return rwl.error.Error("InvalidAlignmentName", {
+          name: anchor
+        })
+      )
+      
+      if alignment.endsWith("l") or alignment.endsWith("left") (
+        alignment = "l"
+      )
+      if alignment.endsWith("r") or alignment.endsWith("right") (
+        alignment = "r"
+      )
+    )
+    alignment ??= boxAlignment
+    
+    // appearance
+    //<link>
+    //<decoration>
+    local color @= self.expectOnHeader("color", "color")
+    if color.isError (
+      return color
+    )
+    color = color["value"]
+    if color != null (
+      context.color = color
+    )
+    color ??= context.color
+    
+    local lines @= text.split("\n")
+    local width = 0
+    for lineI lines.len (
+      width = max(width, lines[lineI].len * size * spacing)
+    )
+    local height = lines.len * line_height * 2 * size
+    
+    local x = context.x
+    if boxAlignment == "l" (
+      x += width / 2
+    )
+    if boxAlignment == "r" (
+      x += width / -2
+    )
+    
+    context.y -= height / (context.anchorY == "b" ? -2 2)
+    
+    self.lines @= []
+    local y = context.y + (height / 2)
+    for lineI lines.len (
+      y -= size * line_height
+      local lineW = shared.graphics.getTextWidth(lines[lineI]) * size
+      local lx = x
+      if alignment == "l" (
+        lx += width / -2
+      )
+      if alignment == "r" (
+        lx += width / 2 - lineW
+      )
+      if alignment == "c" (
+        // account for char spacing
+        lx += lineW * -.5
+      )
+      void self.lines.append([lines[lineI], lx, y, size, color])
+      y -= size * line_height
+    )
+    
+    self.debugArea @= [
+      x - (width / 2),
+      context.y - (height / 2),
+      x + (width / 2),
+      context.y + (height / 2)
+    ]
+    
+    context.y -= height / (context.anchorY == "b" ? -2 2)
+  )
+  
+  def render() (
+    for lineI self.lines.len (
+      local line @= self.lines[lineI]
+      void shared.graphics.ptext(line[1], line[2], line[3], line[4], line[5])
+    )
+    
+    void rwl.debug.box(self.debugArea ?? [])
+  )
+)
+
+def UpdateElements(array elements, array area, object context) (
+  for i elements.len (
+    local out @= elements[i].update(area, context)
+    if out.isError (
+      return out
+    )
+  )
+)
+
+def RenderElements(array elements) (
+  for i elements.len (
+    //void
+    void elements[i].render()
+    void
+  )
+)
+
+def AstToElement(ast, object inst) (
+  def AstToHeader(header) (
+    local flags @= []
+    local pairs @= []
+    for attrI header.attributes.len (
+      local attr @= header.attributes[attrI]
+      switch attr.kind (
+        case "flag"
+          flags.append(attr.data)
+          break
+        case "key"
+          void pairs.append([attr.key, rwl.value.AstToValue(attr.value)])
+          break
+      )
+    )
+    return { flags, pairs }
+  )
+  //log "a" ast
+  local header @= AstToHeader(ast.data.header)
+  switch ast.kind (
+    case "block"
+      if ast.data.header.key != "script" (
+        local children @= AstsToElements(ast.data.content.elements, inst)
+      )
+      if typeof(children) != "array" and children["isError"] (
+        return children
+      )
+      switch ast.data.header.key (
+        // top level
+        case "root"
+          return rwl.main.RWLRoot(children, header)
+        
+        // normal
+        case "frame"
+          return rwl.main.RWLFrame(children, header)
+        case "section"
+          return rwl.main.RWLSection(children, header)
+        
+        case "script"
+          return rwl.main.RWLScript(shared.utils.removeIndents(ast.data.content), header, inst)
+        
+        default
+          return rwl.error.Error("UnknownBlockType", {
+            blockType: ast.data.header.key
+          })
+          break
+      )
+      break
+    case "element"
+      return rwl.main.RWLElement(rwl.value.AstToValue(ast.data.value), header)
+    default
+      return rwl.error.Error("UnknownElementKind", {
+        elementKind: ast.kind
+      })
+      break
+  )
+)
+
+def AstsToElements(elements, object inst) (
+  local elems @= []
+  for i elements.len (
+    local out @= AstToElement(elements[i], inst)
+    if out.isError (
+      return out
+    )
+    void elems.append(out)
+  )
+  return elems
+)
+
+class RWL (
+  def init(object ast, object rtrInst) (
+    self.rtrInst @= rtrInst
+    self.errored = false
+    self.needsUpdate = true
+    
+    self._lastW = 0
+    self._lastH = 0
+    
+    void self.loadFromAst(ast)
+  )
+  
+  def loadFromAst(object ast) (
+    self.ast @= ast
+    self.elements @= rwl.main.AstsToElements(ast.elements, self)
+    
+    if typeof(self.elements) != "array" and self.elements.isError (
+      error self.elements.stringify()
+      self.errored = true
+      return
+    )
+  )
+  
+  def update(array area) (
+    local out @= rwl.main.UpdateElements(self.elements, area, {inst: self})
+    if out.isError (
+      error out.stringify()
+      self.errored = true
+    )
+  )
+  
+  def render(array area) (
+    local w = rwl.area.width(area)
+    local h = rwl.area.height(area)
+    
+    // if the width or height has changed, update
+    if w != self._lastW or h != self._lastH (
+      self.needsUpdate = true
+      
+      self._lastW = w
+      self._lastH = h
+    )
+    
+    if self.needsUpdate (
+      void self.update(area)
+      self.needsUpdate = false
+    )
+    
+    void rwl.main.RenderElements(self.elements)
+    if self.errored (
+      goto rwl.area.centerX(area) rwl.area.centerY(area)
+      centext "rwl errored :(" 10 : c#user.theme.primary
+      return
+    )
+  )
+)

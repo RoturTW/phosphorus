@@ -1,0 +1,9 @@
+
+def getContentArea() (
+  return [
+    window.left,
+    window.bottom,
+    window.right,
+    window.top - 50
+  ]
+)

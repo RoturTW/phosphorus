@@ -1,0 +1,37 @@
+
+class RTRDocument extends rtr.value.RTRValue (
+  def init(object doc) (
+    self.doc @= doc
+  )
+
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "document"
+    })
+  )
+  
+  def setItem(key, value) (
+    switch key.stringify() (
+      case "title"
+        self.doc.title = value.stringify()
+        break
+      case "icon"
+        self.doc.icon = value.stringify()
+        break
+      default
+        throw "unknown property" + key.stringify() + "on document"
+    )
+  )
+)
+
+// applies all rwl related apis to rtr
+def addToInst(object doc, object rtrInst) (
+  local mods @= rtrInst.modules.getValues()
+  for i mods.len (
+    addToMod(doc, mods[i])
+  )
+)
+
+def addToMod(object doc, object mod) (
+  void mod.declScopeVar("document", RTRDocument(doc))
+)

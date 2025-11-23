@@ -1,0 +1,22 @@
+
+def removeIndents(str) (
+  local lines @= str.split("\n")
+  local indent = null
+  for i lines.len (
+    local l2 = lines[i].match("/^( *)(.+)$/")
+    if l2[2].len > 0 (
+      indent = min(indent ?? 9999, l2[2].len)
+    )
+  )
+  for i lines.len (
+    lines[i] = lines[i].trim(indent + 1, -1)
+  )
+  return lines.join("\n")
+)
+
+def jsFunc(string js) (
+  local f @= js.eval()
+  local f2 @= () -> ()
+  f2.code @= f
+  return f2
+)

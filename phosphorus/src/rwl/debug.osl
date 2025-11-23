@@ -1,0 +1,6 @@
+def box(array area, color) (
+  if !rwl.main.debug (
+    return
+  )
+  void shared.graphics.box(area, color ?? #f00)
+)

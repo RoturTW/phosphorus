@@ -1,0 +1,789 @@
+
+class Parser (
+  def init(string text) (
+    void self.tokenise(text)
+  )
+  
+  def parse() (
+    self.pointer = 1
+    
+    local out @= self.blockContent(true)
+    
+    if !self.atEnd() (
+      throw "unexpected token" + self.peek()
+    )
+    
+    return { elements: out }
+  )
+  
+  def peek(amount) (
+    amount ??= 1
+    return self.tokens[self.pointer + amount - 1]
+  )
+  def consume() (
+    local tkn = self.peek()
+    self.pointer ++
+    return tkn
+  )
+  def consumeWhitespace() (
+    while self.peek().match("/^\\s$/") != null (
+      void self.consume()
+    )
+  )
+  def atEnd() (
+    return self.pointer >= self.tokens.len
+  )
+  def expect(string token) (
+    local tkn @= self.consume()
+    if tkn != token (
+      throw "expected '" ++ token ++ "' got '" ++ tkn ++ "'"
+    )
+    return tkn
+  )
+  def expects(array tokens) (
+    local tkn @= self.consume()
+    if !tokens.contains(tkn) (
+      throw "expected '" ++ tokens.join(" or ") ++ "' got '" ++ tkn ++ "'"
+    )
+    return tkn
+  )
+  def expectText() (
+    local tkn @= self.consume()
+    if !tkn.match("/^[a-zA-Z_]+$/") (
+      throw "identifier must consist of letters or _"
+    )
+    return tkn
+  )
+  def getPos() (
+    local ln = 1
+    local col = 0
+    local i = self.pointer
+    for t self.pointer (
+      col ++
+      if self.tokens[t] == "\n" (
+        ln ++
+        col = 0
+      )
+    )
+    return { ln, col, i }
+  )
+  
+  def tokenise(string text) (
+    self.tokens @= []
+    local splitChars @= [
+      "(",")",
+      "[","]",
+      "{","}",
+      ",",";",":","=",".",
+      "+","-","*","/","%","^",
+      "\\",
+      "'","\"","`",
+      " ","\n",
+      "!","?"
+    ]
+    local buf = ""
+    for i text.len (
+      if splitChars.contains(text[i]) (
+        if buf.len > 0 (
+          void self.tokens.append(buf)
+        )
+        void self.tokens.append(text[i])
+        buf = ""
+      ) else (
+        buf ++= text[i]
+      )
+    )
+    if buf.len > 0 (
+      self.tokens.append(buf)
+    )
+  )
+  
+  // statements
+  def blockContent(top) (
+    local statements @= []
+    local end = peek() == "}"
+    while !end (
+      local out @= top ? self.topLevelStatement() self.statement()
+      if out != null (
+        void statements.append(out)
+      )
+      void self.consumeWhitespace()
+      if self.peek() == ";" (
+        void self.consume()
+      )
+      if self.peek() == "}" or self.atEnd() (
+        end = true
+      )
+    )
+    return statements
+  )
+  
+  def topLevelStatement() (
+    void self.consumeWhitespace()
+    
+    if self.peek() == "event" (
+      return self.event()
+    )
+    
+    throw "unexpected token '" ++ self.peek() ++ "'"
+  )
+  
+  def event() (
+    local start @= self.getPos()
+    void self.expect("event")
+    void self.consumeWhitespace()
+    void self.expect("(")
+    void self.consumeWhitespace()
+    local name @= self.expectText()
+    void self.consumeWhitespace()
+    void self.expect(")")
+    void self.consumeWhitespace()
+    local body @= self.block()
+    
+    return {
+      kind: "event",
+      name,
+      body,
+      start, end: self.getPos()
+    }
+  )
+  
+  def statement(noSemicolon) (
+    void self.consumeWhitespace()
+    
+    // statements
+    if self.peek() == "{" (
+      local start @= self.getPos()
+      local body @= self.block()
+      return {
+        kind: "block",
+        body,
+        start, end: self.getPos()
+      }
+    )
+    
+    if self.peek() == "if" (
+      local start @= self.getPos()
+      void self.consume()
+      void self.consumeWhitespace()
+      void self.expect("(")
+      local ifCond @= self.expression()
+      void self.expect(")")
+      void self.consumeWhitespace()
+      local ifBody @= self.statement()
+      
+      local elifs @= []
+      
+      void self.consumeWhitespace()
+      while self.peek() == "elif" (
+        void self.consume()
+        void self.consumeWhitespace()
+        void self.expect("(")
+        local elifCond @= self.expression()
+        void self.expect(")")
+        void self.consumeWhitespace()
+        local elifBody @= self.statement()
+        
+        void elifs.append({
+          cond: elifCond,
+          body: elifBody
+        })
+        void self.consumeWhitespace()
+      )
+      
+      local elseBody = null
+      void self.consumeWhitespace()
+      if self.peek() == "else" (
+        void self.consume()
+        void self.consumeWhitespace()
+        local elseBody @= self.statement()
+      )
+      
+      return {
+        kind: "branch",
+        cond: ifCond,
+        body: ifBody,
+        elifs,
+        elseBody,
+        start, end: self.getPos()
+      }
+    )
+    
+    if ["while","until"].contains(self.peek()) (
+      local start @= self.getPos()
+      local kind @= self.consume()
+      void self.consumeWhitespace()
+      void self.expect("(")
+      local cond @= self.expression()
+      void self.expect(")")
+      void self.consumeWhitespace()
+      local body @= self.statement()
+      
+      return {
+        kind,
+        cond,
+        body,
+        start, end: self.getPos()
+      }
+    )
+    
+    if self.peek() == "repeat" (
+      local start @= self.getPos()
+      void self.consume()
+      void self.consumeWhitespace()
+      void self.expect("(")
+      local amount @= self.expression()
+      void self.expect(")")
+      void self.consumeWhitespace()
+      local body @= self.statement()
+      
+      return {
+        kind: "repeat",
+        amount,
+        body,
+        start, end: self.getPos()
+      }
+    )
+    
+    if self.peek() == "for" (
+      local start @= self.getPos()
+      void self.consume()
+      void self.consumeWhitespace()
+      void self.expect("(")
+      local var @= self.expectText()
+      void self.consumeWhitespace()
+      void self.expect(",")
+      void self.consumeWhitespace()
+      local arr @= self.expression()
+      void self.expect(")")
+      void self.consumeWhitespace()
+      local body @= self.statement()
+      return {
+        kind: "for",
+        var,
+        arr,
+        body,
+        start, end: self.getPos()
+      }
+    )
+    
+    local expr @= self.expression()
+    if expr != null (
+      void self.consumeWhitespace()
+      if !noSemicolon (
+        void self.expect(";")
+      )
+      
+      return {
+        kind: "expression",
+        expr
+      }
+    ) else (
+      throw "unexpected token '" ++ self.peek() ++ "'"
+    )
+  )
+  
+  def block() (
+    local start @= self.getPos()
+    void self.expect("{")
+    void self.consumeWhitespace()
+    local elements @= self.blockContent()
+    void self.consumeWhitespace()
+    void self.expect("}")
+    return { elements, start, end: self.getPos() }
+  )
+  
+  // expressions
+  
+  def expression() (
+    return self.declare()
+  )
+  
+  def declare() (
+    if self.peek().match("/^[a-zA-Z_]\\w*$/") != null (
+      local start @= self.getPos()
+      local ptr = self.pointer
+      local tar = self.consume()
+      void self.consumeWhitespace()
+      if self.peek() == ":" and self.peek(2) == "=" (
+        void self.consume()
+        void self.consume()
+        void self.consumeWhitespace()
+        
+        local val @= self.expression()
+        
+        return {
+          kind: "decl",
+          tar,
+          val,
+          start, end: self.getPos()
+        }
+      )
+      self.pointer = ptr
+    )
+    
+    return self.assignment()
+  )
+  
+  def assignment() (
+    local start @= self.getPos()
+    local expr @= self.equality()
+    void self.consumeWhitespace()
+    
+    local op = null
+    
+    if self.peek() ++ self.peek(2) == "??" and self.peek(3) == "=" (
+      op = self.peek() ++ self.peek(2)
+    )
+    
+    if self.peek(2) == "=" and ["+","-","*","/","%","^"].contains(self.peek()) (
+      op = self.peek()
+    )
+    
+    if op != null or self.peek() == "=" (
+      if op != null (
+        loop op.len (
+          void self.consume()
+        )
+      )
+      void self.consume()
+      void self.consumeWhitespace()
+      
+      local val @= self.expression()
+      
+      return {
+        kind: "asi",
+        op,
+        tar: expr,
+        val,
+        start, end: self.getPos()
+      }
+    )
+    
+    return expr
+  )
+  
+  def equality() (
+    local expr @= self.comparison()
+    void self.consumeWhitespace()
+    
+    while ["==","!="].contains(self.peek() ++ self.peek(2)) (
+      local op @= self.consume() ++ self.consume()
+      local right @= self.comparison()
+      expr @= {
+        kind: "binary",
+        op,
+        left: expr,
+        right
+      }
+    )
+    
+    return expr
+  )
+  
+  def comparison() (
+    local expr @= self.term()
+    
+    local end = false
+    while !end (
+      void self.consumeWhitespace()
+      if [">","<"].contains(self.peek()) (
+        local op @= self.consume()
+        local isEql = self.peek() == "="
+        if isEql (
+          op ++= self.consume()
+        )
+        
+        local right @= self.factor()
+        
+        expr @= {
+          kind: "binary",
+          op,
+          left: expr,
+          right
+        }
+      ) else (
+        end = true
+      )
+    )
+    
+    return expr
+  )
+  
+  def term() (
+    local expr @= self.factor()
+    void self.consumeWhitespace()
+    
+    while ["+","-"].contains(self.peek()) and self.peek(2) != "=" (
+      local op @= self.consume()
+      local right @= self.factor()
+      expr @= {
+        kind: "binary",
+        op,
+        left: expr,
+        right
+      }
+      void self.consumeWhitespace()
+    )
+    
+    return expr
+  )
+  
+  def factor() (
+    local expr @= self.otherBinary()
+    void self.consumeWhitespace()
+    
+    while ["*","/"].contains(self.peek()) and self.peek(2) != "=" (
+      local op @= self.consume()
+      local right @= self.otherBinary()
+      expr @= {
+        kind: "binary",
+        op,
+        left: expr,
+        right
+      }
+      void self.consumeWhitespace()
+    )
+    
+    return expr
+  )
+  
+  def otherBinary() (
+    local expr @= self.coalescence()
+    void self.consumeWhitespace()
+    
+    while ["%","^"].contains(self.peek()) and self.peek(2) != "=" (
+      local op @= self.consume()
+      local right @= self.coalescence()
+      expr @= {
+        kind: "binary",
+        op,
+        left: expr,
+        right
+      }
+      void self.consumeWhitespace()
+    )
+    
+    return expr
+  )
+  
+  def coalescence() (
+    local expr @= self.unary()
+    void self.consumeWhitespace()
+    
+    while self.peek() ++ self.peek(2) == "??" and self.peek(3) != "=" (
+      local op @= self.consume() ++ self.consume()
+      local right @= self.unary()
+      expr @= {
+        kind: "binary",
+        op,
+        left: expr,
+        right
+      }
+      void self.consumeWhitespace()
+    )
+    
+    return expr
+  )
+  
+  def unary() (
+    if self.peek(2) != "=" (
+      switch self.peek() (
+        case "-"; case "+"; case "!"; case "?"
+          return {
+            kind: "unary",
+            type: self.consume(),
+            expr: self.expression()
+          }
+      )
+    )
+    
+    return self.callExpr()
+  )
+  
+  def callExpr() (
+    local start @= self.getPos()
+    local expr @= self.func()
+    
+    if self.peek() == "(" (
+      self.consume()
+      
+      local args @= []
+      local end = self.peek() == ")"
+      while !end (
+        local out @= self.expression()
+        if out != null (
+          void args.append(out)
+        )
+        void self.consumeWhitespace()
+        if self.peek() == "," (
+          void self.consume()
+        )
+        void self.consumeWhitespace()
+        if self.peek() == ")" or self.atEnd() (
+          end = true
+        )
+      )
+      void self.expect(")")
+      
+      return {
+        kind: "call",
+        args,
+        func: expr,
+        start, end: self.getPos()
+      }
+    )
+    
+    return expr
+  )
+  
+  def func() (
+    local start @= self.getPos()
+    
+    local is = false
+    if self.peek() == "(" (
+      local end = false
+      local depth = 0
+      while !end (
+        local tkn @= self.consume()
+        if tkn == "(" (
+          depth ++
+        )
+        if tkn == ")" (
+          depth --
+        )
+        
+        if tkn == ")" and depth == 0 (
+          end = true
+          is = true
+        )
+        if self.atEnd() (
+          end = true
+        )
+      )
+    )
+    void self.consumeWhitespace()
+    if is and self.peek() == "~" (
+      self.pointer = start.i
+      
+      local args @= []
+      void self.consume()
+      void self.consumeWhitespace()
+      local end = self.peek() == ")"
+      if self.peek() == ")" (
+        void self.consume()
+      )
+      while !end (
+        local tkn @= self.expectText()
+        void args.append({
+          name: tkn
+        })
+        
+        void self.consumeWhitespace()
+        local ntkn = self.expects([",",")"])
+        void self.consumeWhitespace()
+        if ntkn == ")" or self.atEnd() (
+          end = true
+        )
+      )
+      void self.consumeWhitespace()
+      void self.expect("~")
+      void self.consumeWhitespace()
+      local body @= self.statement(true)
+      return {
+        kind: "func",
+        args,
+        body,
+        start, end: self.getPos()
+      }
+    )
+    self.pointer = start.i
+    
+    return self.objProperty()
+  )
+  
+  def objProperty() (
+    local expr @= self.primary()
+    void self.consumeWhitespace()
+    
+    while (self.peek() == "[" or self.peek() == ".") and !self.atEnd() (
+      if self.peek() == "[" (
+        void self.consume()
+        local key @= self.expression()
+        void self.expect("]")
+      ) else if self.peek() == "." (
+        void self.consume()
+        local key @= self.expectText()
+      ) else (
+        throw "unexpected token '" ++ self.peek() ++ "'"
+      )
+      expr @= {
+        kind: "prop",
+        obj: expr,
+        key
+      }
+      void self.consumeWhitespace()
+    )
+    
+    return expr
+  )
+  
+  def primary() (
+    void self.consumeWhitespace()
+    
+    if self.peek() == "(" (
+      void self.consume()
+      local expr @= self.expression()
+      void self.expect(")")
+      return expr
+    )
+    
+    if self.peek() == "[" (
+      return self.arr()
+    )
+    
+    if self.peek() == "{" (
+      return self.obj()
+    )
+    
+    if ["'","\"","`"].contains(self.peek()) (
+      return self.str()
+    )
+    
+    if self.peek().match("/^[0-9]+$/") != null (
+      return self.num()
+    )
+    
+    if self.peek().match("/^[a-zA-Z_]\\w*$/") != null (
+      local start @= self.getPos()
+      return {
+        kind: "var",
+        name: self.consume(),
+        start, end: self.getPos()
+      }
+    )
+    
+    throw "unexpected token '" ++ self.peek() ++ "'"
+  )
+  
+  def obj() (
+    void self.expect("{")
+    void self.consumeWhitespace()
+    
+    local pairs @= []
+    
+    local end = self.peek() == "}"
+    while !end (
+      void self.consumeWhitespace()
+      local name @= self.expectText()
+      void self.consumeWhitespace()
+      void self.expect(":")
+      void self.consumeWhitespace()
+      local value @= self.expression()
+      
+      void pairs.append({ name, value })
+      
+      void self.consumeWhitespace()
+      if self.peek() == "}" (
+        end = true
+      ) else (
+        void self.expect(",")
+      )
+    )
+    void self.expect("}")
+    
+    return {
+      kind: "obj",
+      pairs
+    }
+  )
+  
+  def arr() (
+    void self.expect("[")
+    
+    local elems @= []
+    
+    local end = self.peek() == "]"
+    while !end (
+      local expr @= self.expression()
+      void elems.append(expr)
+      
+      void self.consumeWhitespace()
+      if self.peek() == "]" or self.atEnd() (
+        end = true
+      ) else (
+        void self.expect(",")
+      )
+      void self.consumeWhitespace()
+    )
+    
+    void self.expect("]")
+    
+    return {
+      kind: "arr",
+      elems
+    }
+  )
+  
+  def str() (
+    local start @= self.getPos()
+    local q @= self.expects(["'","\"","`"])
+    local content = ""
+    local end = false
+    while (!end) (
+      local tkn @= self.peek()
+      if tkn == "\\" (
+        void self.consume()
+        local tkn = self.consume()
+        local char = tkn[1]
+        switch char (
+          case "n"
+            char = "\n"
+            break
+        )
+        content ++= char ++ tkn.trim(2,-1)
+        continue
+      )
+      
+      if q == tkn (
+        end = true
+      ) else (
+        content ++= self.consume()
+      )
+      if self.atEnd() (
+        end = true
+      )
+    )
+    void self.expect(q)
+    return {
+      kind: "str",
+      val: content,
+      start, end: self.getPos()
+    }
+  )
+  
+  def num() (
+    if self.peek().match("/^[0-9]+$/") == null (
+      throw "unexpected token '" ++ self.peek() ++ "'"
+    )
+    
+    local start @= self.getPos()
+    local val @= self.consume()
+    
+    if self.peek() == "." (
+      val ++= self.consume()
+      if self.peek().match("/^[0-9]+$/") == null (
+        throw "unexpected token '" ++ self.peek() ++ "'"
+      )
+      val ++= self.consume()
+    )
+    
+    val @= val.toNum()
+    
+    return {
+      kind: "num",
+      val,
+      start, end: self.getPos()
+    }
+  )
+)

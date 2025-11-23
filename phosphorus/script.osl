@@ -1,0 +1,63 @@
+
+// import overwrite
+__import @= import;import @= i -> (i.endsWith(".osl") ? __import(i) open(i))
+
+object rwl @= {
+  main: import("./src/rwl/main.osl"),
+  config: import("./src/rwl/config.osl"),
+  area: import("./src/rwl/area.osl"),
+  error: import("./src/rwl/error.osl"),
+  value: import("./src/rwl/value.osl"),
+  debug: import("./src/rwl/debug.osl"),
+  ast: import("./src/rwl/ast.osl")
+}
+
+object rtr @= {
+  main: import("./src/rtr/main.osl"),
+  ast: import("./src/rtr/ast.osl"),
+  error: import("./src/rtr/error.osl"),
+  value: import("./src/rtr/value.osl")
+}
+
+rtr.rwl @= import("./src/rtr/rwl.osl")
+
+object shared @= {
+  graphics: import("./src/shared/graphics.osl"),
+  utils: import("./src/shared/utils.osl"),
+  document: import("./src/shared/document.osl"),
+  tab: import("./src/shared/tab.osl"),
+  url: import("./src/shared/url.osl"),
+  theme: import("./src/shared/theme.osl"),
+  config: import("./src/shared/config.osl")
+}
+
+object layouts @= {
+  shared: {
+    state: import("./src/layouts/shared/state.osl"),
+    utils: import("./src/layouts/shared/utils.osl"),
+    topbar: import("./src/layouts/shared/topbar.osl"),
+    urlbar: import("./src/layouts/shared/urlbar.osl")
+  },
+  chromeLike: {
+    main: import("./src/layouts/chromeLike/main.osl"),
+    topbar: import("./src/layouts/chromeLike/topbar.osl")
+  }
+}
+
+object net @= {
+  fetch: import("./src/net/fetch.osl"),
+  response: import("./src/net/response.osl")
+}
+
+void layouts.chromeLike.main.init()
+
+local document2 @= shared.document.Document()
+local document @= shared.document.Document()
+void document.loadUrl(shared.url.Url("appsieThing.flf"))
+void layouts.shared.state.openTabDocument(document)
+void layouts.shared.state.openTabDocument(document2)
+
+void layouts.shared.state.selectTab(1)
+
+mainloop:
+  void layouts.chromeLike.main.update()

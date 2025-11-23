@@ -1,0 +1,307 @@
+
+class RTRValue (
+  boolean isReturnVal = false
+  def callFunc() (
+    throw "cannot call" + self.stringify(true) + "as function"
+  )
+
+  def getRtrType() (
+    throw self.name + "has not implemented getRtrType()"
+    return rtr.value.RTRTypeValue({
+      name: "?"
+    })
+  )
+
+  def stringify() (
+    return "<" ++ self.getRtrType().getName() ++ ">"
+  )
+  def numbify() (
+    return NaN
+  )
+  def boolify() (
+    return true
+  )
+  def arrify() (
+    return []
+  )
+  def length() (
+    return 0
+  )
+  def getItem(key) (
+    return null
+  )
+  def setItem(key, value) (
+    throw "cannot set items on" + self.stringify(true)
+  )
+  def keys() (
+    return []
+  )
+  def values() (
+    return []
+  )
+  def has(key) (
+    return false
+  )
+  def isEqual(other) (
+    return self.getRtrType().isEqual(other.getRtrType())
+  )
+)
+
+class RTRTypeValue (
+  def init(object data) (
+    self.data @= data
+  )
+  
+  def stringify() (
+    return self.getName()
+  )
+  def getName() (
+    if self.data.name != null (
+      return self.data.name
+    )
+    return "?"
+  )
+  def isEqual(object other) (
+    return self.data.name == other.data.name
+  )
+)
+
+class RTRLiteralValue extends RTRValue (
+  boolean isLiteral = true
+)
+
+class RTRStrValue extends RTRLiteralValue (
+  def init(string value) (
+    self.value @= value
+  )
+  
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "str"
+    })
+  )
+  
+  def stringify(format) (
+    return format ? self.value.JsonStringify() self.value
+  )
+  def numbify() (
+    return self.value.toNum()
+  )
+  def boolify() (
+    return self.value.len > 0
+  )
+  def arrify() (
+    return self.value.split("").map(e -> rtr.value.RTRStrValue(e))
+  )
+  def length() (
+    return self.value.len
+  )
+  def getItem(index) (
+    return rtr.value.RTRStrValue(self.value[index.numbify() + 1])
+  )
+  def isEqual(other) (
+    return self.getRtrType().isEqual(other.getRtrType()) and self.value === other.value
+  )
+)
+
+class RTRNumValue extends RTRLiteralValue (
+  def init(number value) (
+    self.value @= value
+  )
+  
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "num"
+    })
+  )
+  
+  def stringify() (
+    return self.value.toStr()
+  )
+  def numbify() (
+    return self.value
+  )
+  def boolify() (
+    return self.value > 0
+  )
+  def arrify() (
+    return self.value.toStr().split("").map(e -> rtr.value.RTRStrValue(e))
+  )
+  def length() (
+    return self.value.toStr().length
+  )
+  def getItem(index) (
+    return self.value.toStr()[index.numbify() + 1]
+  )
+  def isEqual(other) (
+    return self.getRtrType().isEqual(other.getRtrType()) and self.value === other.value
+  )
+)
+
+class RTRBoolValue extends RTRLiteralValue (
+  def init(boolean value) (
+    self.value @= value
+  )
+  
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "bool"
+    })
+  )
+  
+  def stringify() (
+    return self.value.toStr()
+  )
+  def numbify() (
+    return self.value.toNum()
+  )
+  def boolify() (
+    return self.value
+  )
+  def isEqual(other) (
+    return self.getRtrType().isEqual(other.getRtrType()) and self.value === other.value
+  )
+)
+
+class RTRFuncValue extends RTRValue (
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "func"
+    })
+  )
+)
+
+class RTROslFuncValue extends RTRFuncValue (
+  def init(func) (
+    self.func @= func
+  )
+  
+  def callFunc(object inst, array args) (
+    return self.func(args, inst) ?? rtr.value.RTRNullValue()
+  )
+)
+
+class RTRAstFuncValue extends RTRFuncValue (
+  def init(array args, object body) (
+    self.args @= args
+    self.body @= body
+  )
+  
+  def callFunc(object inst, array args) (
+    local s @= {}
+    for i self.args.len (
+      local a @= self.args[i]
+      local v @= args[i] ?? rtr.value.RTRNullValue()
+      s[a.name] @= [v, {}]
+    )
+    
+    void inst.newScope(s)
+    void inst.declScopeVar("@return", 0)
+    
+    local exprOut @= inst.runStatement(self.body)
+    
+    local ret @= inst.getScopeVar("@return") ?? 0
+    if ret == 0 (
+      ret @= exprOut
+    )
+    
+    void inst.popScope()
+    
+    return ret
+  )
+)
+
+class RTRNullValue extends RTRValue (
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "null"
+    })
+  )
+  
+  def boolify() (
+    return false
+  )
+  def isEqual(other) (
+    return self.getRtrType().isEqual(other.getRtrType()) and self.value === other.value
+  )
+)
+
+class RTRArrValue extends RTRValue (
+  def init(array elements) (
+    self.elements @= elements
+  )
+  
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "arr"
+    })
+  )
+  
+  def stringify() (
+    local el @= self.elements.map(e -> e.stringify(true))
+    return "[" ++ el.join(", ") ++ "]"
+  )
+  def boolify() (
+    return self.elements.len > 0
+  )
+  def arrify() (
+    return self.elements
+  )
+  def length() (
+    return self.elements.len
+  )
+  def keys() (
+    local arr2 @= []
+    for i self.elements.len (
+      void arr2.append(i - 1)
+    )
+    return arr2
+  )
+  def values() (
+    return self.elements
+  )
+  def getItem(index) (
+    return self.elements[index.numbify() + 1]
+  )
+)
+
+class RTRObjValue extends RTRValue (
+  def init(object value) (
+    self.value @= value
+  )
+  
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "obj"
+    })
+  )
+  
+  def stringify() (
+    local el @= self.value.getEntries().map(e -> e[1] ++ ":" + e[2].stringify(true))
+    return "{" ++ el.join(", ") ++ "}"
+  )
+  def boolify() (
+    return self.value.getKeys().len > 0
+  )
+  def arrify() (
+    return self.value.getKeys().map(e -> rtr.value.RTRStrValue(e))
+  )
+  def length() (
+    return self.value.getKeys().len
+  )
+  def keys() (
+    return self.value.getKeys()
+  )
+  def values() (
+    return self.value.getValues()
+  )
+  def has(key) (
+    return self.value.getKeys().contains(key)
+  )
+  def getItem(key) (
+    return self.value[key.stringify()]
+  )
+  def setItem(key, value) (
+    self.value[key.stringify()] @= value
+  )
+)

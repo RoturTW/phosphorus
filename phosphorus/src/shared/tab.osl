@@ -1,0 +1,10 @@
+
+class Tab (
+  def init(object document) (
+    self.document @= document
+  )
+  
+  def redirect(object url) (
+    void self.document.loadUrl(url)
+  )
+)

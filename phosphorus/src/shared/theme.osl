@@ -1,0 +1,10 @@
+
+def load() (
+  self.back = user.theme.background
+  self.prim = user.theme.primary
+  self.seco = user.theme.secondary
+  self.tert = user.theme.tertiary
+  self.text = user.theme.text
+)
+
+load()

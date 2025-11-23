@@ -1,0 +1,66 @@
+
+class Url (
+  def init(string text) (
+    void self.parse(text)
+  )
+  
+  def parse(string text) (
+    self.text = text
+    local match = text.match("/^((\\w+):\\/\\/)?(((\\w+)\\.)?(\\w+)(\\.(\\w+))?\\/?(([\\/w]+)?(\\/(\\w+\\.\\w+))?))\\/?/")
+    
+    self.scheme = match[3] ?? shared.config.url.defaults.scheme
+    
+    if self.scheme == "local" (
+      self.domain_name = match[4]
+      self.domain_top = null
+      self.domain_sub = null
+      self.path = null
+      self.params @= {}
+      self.resource = null
+      return
+    )
+    
+    if match[9] != null (
+      local domain_name = match[7]
+      local domain_top = match[9]
+      local domain_sub = match[6]
+    ) else (
+      if match[6] != null (
+        local domain_name = match[6]
+        local domain_top = match[7]
+        local domain_sub = null
+      ) else (
+        local domain_name = match[7]
+        local domain_top = null
+        local domain_sub = null
+      )
+    )
+    
+    self.domain_name = domain_name ?? shared.config.url.defaults.name
+    self.domain_top = domain_top ?? shared.config.url.defaults.top
+    self.domain_sub = domain_sub
+    self.path = match[13]
+    self.params @= {}
+    self.resource = match[10] ?? "index.rwl"
+  )
+  
+  def format() (
+    local sub = self.domain_sub != null ? self.domain_sub ++ "." ""
+    local top = self.domain_top != null ? "." ++ self.domain_top ""
+    local txt = self.scheme ++ "://" ++ sub ++ domain_name ++ top
+    if self.path != null (
+      txt ++= "/" ++ self.path
+    )
+    if self.file_name != "index.osl" (
+      txt ++= "/" ++ self.file_name
+    )
+    return txt
+  )
+  
+  def getTitle() (
+    if self.scheme == "local" (
+      return self.domain_name.split("/")[-1].split(".")[1]
+    )
+    return self.domain_name
+  )
+)

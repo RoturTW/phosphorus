@@ -1,0 +1,37 @@
+
+def init() (
+  void shared.document.init()
+  void layouts.shared.state.init()
+)
+
+def update() (
+  void shared.theme.load()
+
+  window.show()
+  window_colour = shared.theme.back
+  
+  void layouts.shared.state.resetDragbox()
+
+  local btns @= layouts.shared.topbar.defaultButtons
+  void layouts.shared.topbar.winButtons(btns, false)
+  
+  void layouts.chromeLike.topbar.tabs()
+  
+  void layouts.shared.urlbar.update([
+    window.left,
+    window.top - 45 - 30,
+    window.right,
+    window.top - 44
+  ])
+  
+  if true (
+    void layouts.shared.state.currentDocument.render([
+      window.left,
+      window.bottom,
+      window.right,
+      window.top - 45 - 32.5
+    ])
+  )
+  
+  void layouts.shared.state.applyDragbox()
+)

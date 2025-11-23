@@ -1,0 +1,447 @@
+
+class Module (
+  def init(object ast) (
+    void self.loadFromAst(ast)
+    void self.initScope()
+    void self.defScope()
+  )
+  def loadFromAst(object ast) (
+    self.ast @= ast
+    
+    self.events @= {}
+    self.eventList @= []
+    for i self.ast.elements.len (
+      local topLevel @= self.ast.elements[i]
+      if topLevel.kind == "event" (
+        if self.eventList.contains(topLevel.name) (
+          throw topLevel.name + "event already exists on module"
+        )
+        void self.eventList.append(topLevel.name)
+        self.events[topLevel.name] @= topLevel
+      )
+    )
+  )
+  
+  def initScope() (
+    self.scope @= []
+  )
+  def newScope(object vars) (
+    void self.scope.append(vars)
+  )
+  def popScope() (
+    return self.scope.pop()
+  )
+  def defScope() (
+    // helper funcs
+    local cFunc @= def(name, content) -> (
+      void self.setScopeVar(name, rtr.value.RTROslFuncValue(content))
+    )
+    
+    void self.newScope({})
+    
+    void self.setScopeVar("true", rtr.value.RTRBoolValue(true))
+    void self.setScopeVar("false", rtr.value.RTRBoolValue(false))
+    
+    cFunc("log", def(args) -> (
+      log args.map(a -> a.stringify()).join(" ")
+    ))
+    cFunc("error", def(args) -> (
+      throw args[1].stringify()
+    ))
+    cFunc("return", def(args, inst) -> (
+      local val @= args[1]
+      val ??= rtr.value.RTRNullValue()
+      void inst.setScopeVar("@return", val)
+    ))
+    cFunc("typeof", def(args) -> (
+      local val @= args[1] ?? rtr.value.RTRNullValue()
+      return val.getRtrType()
+    ))
+    cFunc("length", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].length())
+    ))
+    
+    // mathematical
+    cFunc("min", def(args) -> (
+      local v = args[1].numbify()
+      for i args.len - 1 (
+        local a @= args[i + 1].numbify()
+        v = min(v, a)
+      )
+      return rtr.value.RTRNumValue(v)
+    ))
+    cFunc("max", def(args) -> (
+      local v = args[1].numbify()
+      for i args.len - 1 (
+        local a @= args[i + 1].numbify()
+        v = max(v, a)
+      )
+      return rtr.value.RTRNumValue(v)
+    ))
+    
+    cFunc("abs", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].numbify().abs())
+    ))
+    cFunc("sqrt", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].numbify().sqrt())
+    ))
+    
+    cFunc("round", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].numbify().round())
+    ))
+    cFunc("floor", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].numbify().floor())
+    ))
+    cFunc("ceil", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].numbify().ceiling())
+    ))
+    
+    // string
+    cFunc("join", def(args) -> (
+      local txt = ""
+      for i args.len (
+        txt ++= args[i].stringify()
+      )
+      return rtr.value.RTRStrValue(txt)
+    ))
+    cFunc("split", def(args) -> (
+      return rtr.value.RTRArrValue(args[1]
+        .stringify()
+        .split(args[2].stringify())
+        .map(e -> rtr.value.RTRStrValue(e)))
+    ))
+    
+    cFunc("chr", def(args) -> (
+      return rtr.value.RTRStrValue(args[1].numbify().chr())
+    ))
+    cFunc("ord", def(args) -> (
+      return rtr.value.RTRNumValue(args[1].stringify().ord())
+    ))
+    
+    // array
+    cFunc("item", def(args) -> (
+      return args[1].getItem(args[2])
+    ))
+    cFunc("range", def(args) -> (
+      return rtr.value.RTRArrValue((args[1].numbify() to args[2].numbify()).map(e -> rtr.value.RTRNumValue(e)))
+    ))
+    
+    // object
+    cFunc("keys", def(args) -> (
+      return rtr.value.RTRArrValue(args[1].keys().map(e -> rtr.value.RTRStrValue(e)))
+    ))
+    cFunc("values", def(args) -> (
+      return rtr.value.RTRArrValue(args[1].values())
+    ))
+    cFunc("has", def(args) -> (
+      return rtr.value.RTRBoolValue(args[1].has(args[2].stringify()))
+    ))
+    cFunc("obj", def() -> (
+      return rtr.value.RTRObjValue({})
+    ))
+    
+    // logical
+    cFunc("all", def(args) -> (
+      return rtr.value.RTRBoolValue(args.every(a -> a.boolify()))
+    ))
+    cFunc("any", def(args) -> (
+      return rtr.value.RTRBoolValue(args.some(a -> a.boolify()))
+    ))
+    cFunc("not", def(args) -> (
+      return rtr.value.RTRBoolValue(!args[1].boolify())
+    ))
+  )
+  def getScopeVarRaw(string key) (
+    for rawI self.scope.len (
+      local layer @= self.scope[self.scope.len - rawI + 1]
+      if layer[key] != null (
+        return layer[key]
+      )
+    )
+    return null
+  )
+  def getScopeVar(string key) (
+    return self.getScopeVarRaw(key)[1]
+  )
+  def getScopeVarMeta(string key) (
+    return self.getScopeVarRaw(key)[2]
+  )
+  def setScopeVar(string key, val, meta) (
+    meta ??= {}
+    for rawI self.scope.len (
+      local layer @= self.scope[self.scope.len - rawI + 1]
+      if layer[key] != null (
+        layer[key] @= [val, layer[key][2] ++ meta]
+        return
+      )
+    )
+    void self.declScopeVar(key, val, meta)
+  )
+  def declScopeVar(string key, val, meta) (
+    self.scope[self.scope.len][key] @= [val, meta]
+  )
+  
+  def runEvent(string name, object data) (
+    if !self.eventList.contains(name) (
+      return
+    )
+    
+    local ev @= self.events[name]
+    void self.runBlock(ev.body)
+  )
+  def runBlock(object block) (
+    local elements @= block.elements
+    local outVal @= rtr.value.RTRNullValue()
+    void self.newScope({})
+    for i elements.len (
+      local out @= self.runStatement(elements[i])
+      if self.getScopeVar("@return") ?? 0 != 0 (
+        break
+      )
+    )
+    void self.popScope()
+    return outVal
+  )
+  def runStatement(object statement) (
+    switch statement.kind (
+      case "expression"
+        return self.runExpression(statement.expr)
+      case "block"
+        return self.runBlock(statement.body)
+      
+      case "branch"
+        if self.runExpression(statement.cond).boolify() (
+          return self.runStatement(statement.body)
+        )
+        for i statement.elifs.len (
+          local elif @= statement.elifs[i]
+          if self.runExpression(elif.cond).boolify() (
+            return self.runStatement(elif.body)
+          )
+        )
+        if statement.elseBody != null (
+          return self.runStatement(statement.elseBody)
+        )
+        return rtr.value.RTRNullValue()
+      
+      case "while"
+        local iters = 0
+        while self.runExpression(statement.cond).boolify() and self.getScopeVar("@return") ?? 0 == 0 and iters < 999999 (
+          void self.runStatement(statement.body)
+          iters ++
+        )
+        return rtr.value.RTRNullValue()
+      case "until"
+        local iters = 0
+        while !self.runExpression(statement.cond).boolify() and self.getScopeVar("@return") ?? 0 == 0 and iters < 999999 (
+          void self.runStatement(statement.body)
+          iters ++
+        )
+        return rtr.value.RTRNullValue()
+      case "repeat"
+        loop self.runExpression(statement.amount).numbify() (
+          void self.runStatement(statement.body)
+        )
+        return rtr.value.RTRNullValue()
+      case "for"
+        local arr @= self.runExpression(statement.arr).arrify()
+        log arr
+        for i arr.len (
+          void self.newScope({})
+          void self.declScopeVar(statement.var, arr[i])
+          void self.runStatement(statement.body)
+          void self.popScope()
+        )
+        return rtr.value.RTRNullValue()
+      
+      default
+        throw "unknown statement type" + statement.kind
+    )
+  )
+  def runExpression(object expression) (
+    switch expression.kind (
+      case "call"
+        local func @= self.runExpression(expression.func)
+        local args @= []
+        for i expression.args.len (
+          void args.append(self.runExpression(expression.args[i]))
+        )
+        return func.callFunc(self, args) ?? rtr.value.RTRNullValue()
+      case "decl"
+        local val @= self.runExpression(expression.val)
+        
+        void self.declScopeVar(expression.tar, val, {
+          type: val.getRtrType()
+        })
+        
+        return val
+      case "asi"
+        local val @= self.runExpression(expression.val)
+        
+        local existingMeta = null
+        local existing = null
+        switch expression.tar.kind (
+          case "var"
+            existingMeta @= self.getScopeVarMeta(expression.tar.name)
+            existing @= self.getScopeVar(expression.tar.name)
+            break
+          case "prop"
+            existing @= self.runExpression(expression.tar)
+            break
+        )
+        
+        if expression.op != null (
+          val @= self.runOperation(existing, expression.op, val)
+        )
+        
+        switch expression.tar.kind (
+          case "var"
+            if existingMeta != null (
+              local curType @= val.getRtrType()
+              if existingMeta.type != null (
+                if !existingMeta.type.isEqual(curType) (
+                  throw "cannot assign" + curType.stringify() + "to" + existingMeta.type.stringify() + "variable" 
+                )
+              )
+            )
+            void self.setScopeVar(expression.tar.name, val)
+            break
+          case "prop"
+            local obj @= self.runExpression(expression.tar.obj)
+            local key @= expression.tar.key
+            if typeof(key) == "string" (
+              key @= rtr.value.RTRStrValue(key)
+            ) else (
+              key @= self.runExpression(key)
+            )
+            obj.setItem(key, val)
+            break
+          default
+            throw "cannot assign to" + expression.tar.kind
+        )
+        
+        return val
+      case "unary"
+        local val @= self.runExpression(expression.expr)
+        switch expression.type (
+          case "-"
+            return rtr.value.RTRNumValue(-val.numbify())
+          case "+"
+            return rtr.value.RTRNumValue(val.numbify())
+          case "!"
+            return rtr.value.RTRBoolValue(!val.boolify())
+          case "?"
+            return rtr.value.RTRBoolValue(val.boolify())
+        )
+        return rtr.value.RTRNullValue()
+      case "binary"
+        local left @= self.runExpression(expression.left)
+        local right @= self.runExpression(expression.right)
+        return self.runOperation(left, expression.op, right)
+      case "var"
+        local val @= self.getScopeVar(expression.name)
+        return val ?? rtr.value.RTRNullValue()
+      case "prop"
+        local obj @= self.runExpression(expression.obj)
+        local key @= expression.key
+        if typeof(key) == "string" (
+          key @= rtr.value.RTRStrValue(key)
+        ) else (
+          key @= self.runExpression(key)
+        )
+        return obj.getItem(key) ?? rtr.value.RTRNullValue()
+      
+      case "str"
+        return rtr.value.RTRStrValue(expression.val)
+      case "num"
+        return rtr.value.RTRNumValue(expression.val)
+      case "func"
+        return rtr.value.RTRAstFuncValue(expression.args, expression.body)
+      case "arr"
+        return rtr.value.RTRArrValue(expression.elems.map(e -> self.runExpression(e)))
+      case "obj"
+        local val @= {}
+        for i expression.pairs.len (
+          local pair @= expression.pairs[i]
+          val[pair.name] @= self.runExpression(pair.value)
+        )
+        return rtr.value.RTRObjValue(val)
+      
+      default
+        throw "unknown expression type" + expression.kind
+    )
+  )
+  def runOperation(object left, op, object right) (
+    local numT @= rtr.value.RTRNumValue.getRtrType()
+    switch op (
+      case "+"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() + right.numbify())
+        )
+        return rtr.value.RTRStrValue(left.stringify() ++ right.stringify())
+      case "-"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() - right.numbify())
+        )
+        return rtr.value.RTRNumValue(NaN)
+      case "*"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() * right.numbify())
+        )
+        return rtr.value.RTRNumValue(NaN)
+      case "/"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() / right.numbify())
+        )
+        return rtr.value.RTRNumValue(NaN)
+      case "%"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() % right.numbify())
+        )
+        return rtr.value.RTRNumValue(NaN)
+      case "^"
+        if left.getRtrType().isEqual(numT) and right.getRtrType().isEqual(numT) (
+          return rtr.value.RTRNumValue(left.numbify() ^ right.numbify())
+        )
+        return rtr.value.RTRNumValue(NaN)
+      
+      case "=="
+        return rtr.value.RTRBoolValue(left.isEqual(right))
+      case "!="
+        return rtr.value.RTRBoolValue(left.isEqual(right))
+      
+      case ">"
+        return rtr.value.RTRBoolValue(left.numbify() > right.numbify())
+      case "<"
+        return rtr.value.RTRBoolValue(left.numbify() < right.numbify())
+      case ">="
+        return rtr.value.RTRBoolValue(left.numbify() >= right.numbify())
+      case "<="
+        return rtr.value.RTRBoolValue(left.numbify() <= right.numbify())
+    
+      case "??"
+        return left.getRtrType().data.name == "null" ? right left
+    )
+    
+    return rtr.value.RTRNullValue()
+  )
+)
+
+class RTR (
+  def init() (
+    self.modules @= {}
+  )
+
+  def addModule(object mod) (
+    local key @= OuidNew()
+    self.modules[key] @= mod
+    return key
+  )
+  
+  def startModules() (
+    local mods @= self.modules.getValues()
+    for i mods.len (
+      void mods[i].runEvent("onload", {})
+    )
+  )
+)

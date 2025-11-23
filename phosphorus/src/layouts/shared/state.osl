@@ -1,0 +1,55 @@
+
+debug = false
+
+def init() (
+  void self.updateTab()
+  void self.selectTab(1)
+  
+  self.tabs @= []
+)
+
+def resetDragbox() (
+  self.dragbox @= [[2,2,0,0],[-2,2,-90,-40]]
+)
+
+def applyDragbox() (
+  window.setDragbox(self.dragbox[1], self.dragbox[2])
+  
+  if self.debug (
+    c #fff
+    loc self.dragbox[1][1] self.dragbox[1][2] self.dragbox[1][3] self.dragbox[1][4]
+    pen "down"
+    loc self.dragbox[2][1] self.dragbox[2][2] self.dragbox[2][3] self.dragbox[2][4]
+    pen "up"
+  )
+)
+
+def openTabDocument(object document) (
+  local tab @= shared.tab.Tab(document)
+  void self.tabs.append(tab)
+)
+
+def openEmptyTab() (
+  void self.openTabDocument(shared.document.Document())
+)
+
+def closeTab(number index) (
+  void self.tabs.delete(index)
+  
+  if index < self.currentTab (
+    self.currentTab --
+  )
+  
+  void self.updateTab()
+)
+
+def selectTab(number index) (
+  self.currentTab @= index
+  void self.updateTab()
+  inputs[layouts.shared.urlbar.inputId] = self.currentDocument.url.text
+)
+
+def updateTab() (
+  self.currentDocument @= self.tabs[self.currentTab].document
+  self.currentDocument ??= shared.document.Document()
+)

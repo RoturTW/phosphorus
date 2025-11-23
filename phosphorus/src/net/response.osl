@@ -1,0 +1,29 @@
+
+class Response (
+  isValid = false
+  
+  def init(object url, string content) (
+    self.url @= url
+    self.content = content
+    
+    self.isFinished = true
+  )
+)
+
+class NoResponse extends Response (
+  
+)
+
+class ValidResponse extends Response (
+  isValid = true
+  
+  def init(object url) (
+    self.url @= url
+    
+    self.isFinished = false
+  )
+  
+  def update() (
+    void self.fetch()
+  )
+)

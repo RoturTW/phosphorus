@@ -1,0 +1,59 @@
+
+  def parse(string text) (
+    local scheme = shared.config.url.defaults.scheme
+    local name = shared.config.url.defaults.name
+    local top = shared.config.url.defaults.top
+    local sub = null
+    local path = null
+    local resource = "index.rwl"
+    
+    local tokens = text.split("://")
+    if tokens.len > 1 (
+      scheme = tokens.shift()
+      text = tokens.join("://")
+    )
+    
+    if scheme == "local" (
+      self.scheme = scheme
+      self.domain_name = text
+      self.domain_top = null
+      self.domain_sub = null
+      self.path = null
+      self.params @= {}
+      self.resource = null
+      return
+    )
+    
+    tokens = text.split("/")
+    if tokens.len == 0 (
+      tokens @= [text]
+    )
+    if tokens[-1].split(".").len > 1 (
+      resource = tokens.pop()
+    )
+    path = tokens.join("/")
+    
+    text = tokens.shift() ?? ""
+    
+    tokens = text.split(".")
+    if tokens.len == 1 (
+      name = tokens[1]
+    )
+    if tokens.len == 2 (
+      top = tokens[2]
+      name = tokens[1]
+    )
+    if tokens.len >= 2 (
+      top = tokens.pop()
+      name = tokens.pop()
+      sub = tokens.join(".")
+    )
+    
+    self.scheme = scheme
+    self.domain_name = name
+    self.domain_top = top
+    self.domain_sub = sub
+    self.path = path
+    self.params @= {}
+    self.resource = resource
+  )

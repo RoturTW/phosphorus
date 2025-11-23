@@ -1,0 +1,31 @@
+
+inputId = "browser_url"
+
+def update(array area) (
+  local defaultText = "blehh"
+  
+  goto rwl.area.centerX(area) rwl.area.centerY(area) + 2.5
+  
+  local w = rwl.area.width(area) - 15
+  local h = rwl.area.height(area) - 0
+  
+  square w - 5 h - 18 15 : c#shared.theme.prim
+  input w h - 5 self.inputId defaultText 0 shared.theme.text
+  
+  if inputs.selected.id == self.inputId (
+    if "enter".onKeyDown() (
+      void self.goto()
+    )
+  )
+  
+  //void shared.graphics.box(area, #f00)
+)
+
+def goto() (
+  local url = inputs[self.inputId]
+  
+  url @= shared.url.Url(url)
+  
+  local tab @= layouts.shared.state.tabs[layouts.shared.state.currentTab]
+  void tab.redirect(url)
+)

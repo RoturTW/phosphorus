@@ -1,0 +1,79 @@
+
+object Errors = {
+  UnknownElementKind: def(data) -> (
+    return "unknown element kind:" + data.elementKind
+  ),
+  UnknownAttributeKind: def(data) -> (
+    return "unknown attribute kind:" + data.attributeKind
+  ),
+  
+  UnknownValueType: def(data) -> (
+    return "unknown value type:" + data.valueType
+  ),
+  UnknownBlockType: def(data) -> (
+    return "unknown block type:" + data.blockType
+  ),
+  
+  InvalidAnchorName: def(data) -> (
+    return "unknown anchor name" + data.name
+  ),
+  InvalidAlignmentName: def(data) -> (
+    return "unknown anchor name" + data.name
+  ),
+  
+  InvalidElemType: def(data) -> (
+    return "cannot have" + data.valueType + "as element"
+  ),
+  
+  ValueTypeMismatch: def(data) -> (
+    if typeof(data.wanted) == "string" (
+      data.wanted @= [data.wanted]
+    )
+    local forCtx = ""
+    if data.attr != null (
+      forCtx += "for" + data.attr
+    )
+    return "wanted" + data.wanted.join(" or ") + "got" + data.got ++ forCtx
+  ),
+  
+  UnknownProperty: def(data) -> (
+    return "unknown property" + data.property + "on" + data.source
+  ),
+  UnknownPropertySource: def(data) -> (
+    return "unknown source" + data.source
+  ),
+  
+  ElemInFrame: def(data) -> (
+    return "element in a frame, only sections are allowed directly in frames"
+  ),
+  
+  NoScriptType: def(data) -> (
+    return "no script type attribute"
+  ),
+  InvalidScriptType: def(data) -> (
+    return "unknown script type" + data.type
+  ),
+  InvalidScriptAttrType: def(data) -> (
+    return "unknown script type attribute type" + data.type
+  )
+}
+
+class Error (
+  boolean isError = true
+  
+  def init(string type, object data) (
+    self.type = type
+    self.data @= data
+    
+    local err @= rwl.error.Errors[type]
+    if err == null (
+      self.txt = "unknown error type" + type
+      return
+    )
+    self.txt = err(data)
+  )
+  
+  def stringify() (
+    return "Error<" ++ self.type ++ ">:\n" ++ self.txt.split("\n").map(l -> "    " ++ l).join("\n")
+  )
+)

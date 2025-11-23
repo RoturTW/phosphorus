@@ -1,0 +1,43 @@
+
+def url(object url) (
+  local servers @= shared.config.net.servers
+  local server @= servers[url.scheme]
+  
+  if server == null (
+    local r @= net.response.NoResponse(url, "scheme '" ++ url.scheme ++ "' not found")
+    return r
+  )
+  
+  local resource = url.domain_top
+  resource ++= "/"
+  if url.domain_sub != null (
+    resource ++= url.domain_sub
+    resource ++= "."
+  )
+  resource ++= url.domain_name
+  if url.resource != null (
+    resource ++= "/"
+    resource ++= url.resource
+  )
+  
+  local tld = server.tlds[url.domain_top]
+  
+  if tld == null (
+    local r @= net.response.NoResponse(url, "tld '" ++ url.domain_top ++ "' not found")
+    return r
+  )
+  
+  local realUrl = tld ++ "/" ++ resource
+  
+  local r @= net.response.ValidResponse(url)
+  r.fetch @= def() -> (
+    local o = self.realUrl.getAsync()
+    if o != "Loading" and o != "404: Not Found" (
+      self.content = o
+      self.isFinished = true
+    )
+  )
+  r.realUrl = realUrl
+  
+  return r
+)

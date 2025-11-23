@@ -1,0 +1,39 @@
+
+array defaultButtons = [
+  {
+    icon: "close",
+    click: window.close
+  },
+  {
+    icon: "down",
+    click: window.minimise
+  },
+  {
+    icon: "maximise",
+    click: window.fullscreen
+  }
+]
+
+def winButtons(array buttons, boolean background) (
+  if background (
+    local w = buttons.len * 25
+    
+    loc -2 2 w / -2 - 7.5 -20
+    square w - 5 18 10 : c#shared.theme.prim
+  )
+  
+  loc -2 2 -20 -20
+  change_x 25
+  for i buttons.len (
+    local button @= buttons[i]
+    
+    c shared.theme.text
+    icon button.icon 0.6 * (button.icon_size ?? 1) : hover_size#1.1 chx#-25
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        void button.click()
+      )
+    )
+  )
+)

@@ -1,0 +1,24 @@
+
+object Editors = {
+
+}
+
+class Error (
+  boolean isError = true
+  
+  def init(string type, object data) (
+    self.type = type
+    self.data @= data
+    
+    local err @= rwl.error.Errors[type]
+    if err == null (
+      self.txt = "unknown error type" + type
+      return
+    )
+    self.txt = err(data)
+  )
+  
+  def stringify() (
+    return "Error<" ++ self.type ++ ">:\n" ++ self.txt.split("\n").map(l -> "    " ++ l).join("\n")
+  )
+)

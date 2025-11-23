@@ -1,0 +1,30 @@
+
+class net (
+  servers = {
+    rtr: {
+      url: "http://localhost:3000/",
+      
+      // <server>/<command>
+      commands: {
+        tlds: "tlds"
+      }
+    }
+  }
+  
+  def refresh() (
+    for i self.servers.len (
+      local s @= self.servers.getValues()[i]
+      s.tlds @= (s.url ++ s.commands.tlds).httpGet()
+    )
+  )
+)
+
+net.refresh()
+
+class url (
+  class defaults (
+    scheme = "rtr"
+    name = "unknown"
+    top = "web"
+  )
+)
