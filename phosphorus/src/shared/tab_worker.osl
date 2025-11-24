@@ -4,7 +4,12 @@ def oncreate() (
 )
 
 def onframe() (
-  if self.area != null (
-    void self.document.rwlInst.checkUpdate(self.area)
+  if self.parseText != null (
+    local parser @= rwl.ast.Parser(self.parseText)
+    if self != null (
+      //log self
+      void self.document.loadAst(parser.parse())
+      self.parseText = null
+    )
   )
 )

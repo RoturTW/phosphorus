@@ -644,7 +644,6 @@ class RWL (
       self._lastH = h
     )
     
-    log self self.needsUpdate
     if self.needsUpdate (
       void self.update(area)
       self.needsUpdate = false
@@ -652,11 +651,15 @@ class RWL (
   )
   
   def render(array area) (
+    void self.checkUpdate(area)
+  
     self.worker.area @= area
     if self.errored (
       goto rwl.area.centerX(area) rwl.area.centerY(area)
-      centext "rwl errored :(" 10 : c#user.theme.primary
-      centext self.errormsg 8 : c#user.theme.primary
+      centext "rwl errored :(" 12 : c#shared.theme.seco
+      if self.errormsg != null (
+        centext self.errormsg 8 : c#shared.theme.prim chy#-20
+      )
       return
     )
     

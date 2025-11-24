@@ -180,7 +180,7 @@ case "./src/layouts/summit/main.osl"
         window.top - 5
       ])
       
-      void layouts.shared.state.currentDocument.render([
+      void layouts.shared.view.render([
         window.left + layouts.summit.sidebar.width,
         window.bottom + 5,
         window.right - 5,
@@ -320,7 +320,7 @@ case "./src/layouts/chromeLike/main.osl"
         window.top - 44
       ])
       
-      void layouts.shared.state.currentDocument.render([
+      void layouts.shared.view.render([
         window.left,
         window.bottom,
         window.right,
@@ -331,6 +331,35 @@ case "./src/layouts/chromeLike/main.osl"
     )
   )
   return __imports__34355e72215dbff81e1963b1534949ee
+case "./src/layouts/shared/view.osl"
+  class __imports__5228a5cd2bf6a46e3a340119920c2e17 (
+    def render(array area) (
+      local devtoolsData @= devtools.main ?? { width: 0, anchor: "l" }
+      
+      local devtoolsArea @= rwl.area.copy(area)
+      local contentArea @= rwl.area.copy(area)
+      switch devtoolsData.anchor (
+        case "l"
+          contentArea[1] += devtoolsData.width
+          devtoolsArea[3] = contentArea[1]
+          break
+        case "r"
+          contentArea[3] -= devtoolsData.width
+          devtoolsArea[1] = contentArea[3]
+          break
+      )
+      
+      if layouts.shared.state.currentDocument != null (
+        void layouts.shared.state.currentDocument.checkResp()
+        void layouts.shared.state.currentDocument.render(contentArea)
+      )
+      
+      if typeof(devtools) == "object" (
+        void devtools.main.update(devtoolsArea)
+      )
+    )
+  )
+  return __imports__5228a5cd2bf6a46e3a340119920c2e17
 case "./src/layouts/shared/urlbar.osl"
   class __imports__e1f3f683350eb46be2bb39ac4a8762b8 (
     inputId = "browser_url"
@@ -457,6 +486,7 @@ case "./src/layouts/shared/state.osl"
     )
     
     def closeTab(number index) (
+      void self.tabs[index].document.close()
       void self.tabs.delete(index)
       
       if index < self.currentTab (
@@ -474,10 +504,20 @@ case "./src/layouts/shared/state.osl"
     
     def updateTab() (
       self.currentDocument @= self.tabs[self.currentTab].document
-      self.currentDocument ??= shared.document.Document()
+      //self.currentDocument ??= shared.document.Document()
     )
   )
   return __imports__d1763f06b30a5d5d9c10608cf0f00c3e
+case "./src/devtools/main.osl"
+  class __imports__87f5572a1b07abb6f61e525f0557da7a (
+    anchor = "r"
+    width = 200
+    
+    def update(array area) (
+      void shared.graphics.box(area, #0ff)
+    )
+  )
+  return __imports__87f5572a1b07abb6f61e525f0557da7a
 case "./src/net/response.osl"
   class __imports__f336b41d073413cbdabb122f71c530f0 (
     class Response (
@@ -513,6 +553,17 @@ case "./src/net/response.osl"
 case "./src/net/fetch.osl"
   class __imports__d974ce5692d372884f5c4f8f8bf1ab18 (
     def url(object url) (
+      if url.scheme == "local" (
+        local f @= open(url.domain_name).toStr()
+        local r @= net.response.ValidResponse(url)
+        r.fetch @= def() -> (
+          self.content = self.f
+          self.isFinished = true
+        )
+        r.f @= f
+        return r
+      )
+    
       local servers @= shared.config.net.servers
       local server @= servers[url.scheme]
       
@@ -556,18 +607,36 @@ case "./src/net/fetch.osl"
     )
   )
   return __imports__d974ce5692d372884f5c4f8f8bf1ab18
+case "./src/shared/tab_worker.osl"
+  class __imports__ed11349f32bd7389fac05d89b56e016d (
+    def oncreate() (
+      log "woc" self
+    )
+    
+    def onframe() (
+      if self.parseText != null (
+        local parser @= rwl.ast.Parser(self.parseText)
+        if self != null (
+          //log self
+          void self.document.loadAst(parser.parse())
+          self.parseText = null
+        )
+      )
+    )
+  )
+  return __imports__ed11349f32bd7389fac05d89b56e016d
 case "./src/shared/config.osl"
   class __imports__9f198a2aa8925b082e5f887a2bba9b67 (
     class net (
       servers = {
-        rtr: {
-          url: "http://localhost:3000/",
-          
-          // <server>/<command>
-          commands: {
-            tlds: "tlds"
-          }
-        }
+        //rtr: {
+        //  url: "http://localhost:3000/",
+        //  
+        //  // <server>/<command>
+        //  commands: {
+        //    tlds: "tlds"
+        //  }
+        //}
       }
       
       def refresh() (
@@ -611,17 +680,23 @@ case "./src/shared/url.osl"
       
       def parse(string text) (
         self.text = text
-        local match = text.match("/^((\\w+):\\/\\/)?(((\\w+)\\.)?(\\w+)(\\.(\\w+))?\\/?(([\\/w]+)?(\\/(\\w+\\.\\w+))?))\\/?/")
+        local s @= text.match("/^((\\w+):\\/\\/)/")
+        local match @= text.match("/^((\\w+):\\/\\/)?(((\\w+)\\.)?(\\w+)(\\.(\\w+))?\\/?(([\\/w]+)?(\\/(\\w+\\.\\w+))?))\\/?/")
         
-        self.scheme = match[3] ?? shared.config.url.defaults.scheme
+        self.scheme = match[3] ?? s[3] ?? shared.config.url.defaults.scheme
         
         if self.scheme == "local" (
-          self.domain_name = match[4]
+          self.domain_name = text.trim("local://".len + 1, -1)
+          local usrPath = "origin/(c) users/" ++ username
+          if self.domain_name.toLower().startsWith(usrPath.toLower()) (
+            self.domain_name = "~" ++ self.domain_name.trim(usrPath.len + 1, -1)
+          )
           self.domain_top = null
           self.domain_sub = null
           self.path = null
           self.params @= {}
           self.resource = null
+          self.text = "local://" ++ self.domain_name
           return
         )
         
@@ -688,7 +763,28 @@ case "./src/shared/document.osl"
   class __imports__af13446f70bd7836009892ffef4b5078 (
     class Document (
       def init() (
-        self.createInsts()
+        void self.createInsts()
+        
+        void self.createWorker()
+      )
+      
+      def close() (
+        void self.killWorker()
+      )
+      
+      def createWorker() (
+        log "create worker"
+        void killWorker()
+        self.worker @= worker(shared.tab_worker)
+        self.worker.document @= self
+      )
+      
+      def killWorker() (
+        if self.worker != null (
+          log "kill worker"
+          void self.worker.kill()
+          self.worker = null
+        )
       )
       
       def createInsts() (
@@ -711,13 +807,17 @@ case "./src/shared/document.osl"
       )
       
       def update(array area) (
-        
-        void self.checkResp()
         void self.rwlInst.update(area)
       )
       
       def render(array area) (
-        void self.checkResp()
+        if self.worker != null (
+          self.worker.area @= area
+          if !self.worker.alive (
+            self.rwlInst.errored = true
+            self.rwlInst.errormsg = "tab worker died, check code for syntax errors\nyou can also check js console"
+          )
+        )
         
         goto rwl.area.centerX(area) rwl.area.centerY(area)
         square rwl.area.width(area) - 10 rwl.area.height(area) - 10 10 : c#shared.theme.back
@@ -729,6 +829,7 @@ case "./src/shared/document.osl"
           return
         )
         
+        //log self.rwlInst
         void self.rwlInst.render(area)
       )
       
@@ -760,8 +861,8 @@ case "./src/shared/document.osl"
       )
       
       def loadText(string text) (
-        local parser @= rwl.ast.Parser(text)
-        void self.loadAst(parser.parse())
+        void self.createWorker()
+        self.worker.parseText = text
       )
       
       def loadUrl(object url) (
@@ -3700,10 +3801,11 @@ case "./src/rwl/main.osl"
         if out.isError (
           error out.stringify()
           self.errored = true
+          self.errormsg = out.stringify()
         )
       )
       
-      def render(array area) (
+      def checkUpdate(array area) (
         local w = rwl.area.width(area)
         local h = rwl.area.height(area)
         
@@ -3719,13 +3821,22 @@ case "./src/rwl/main.osl"
           void self.update(area)
           self.needsUpdate = false
         )
-        
-        void rwl.main.RenderElements(self.elements)
+      )
+      
+      def render(array area) (
+        void self.checkUpdate(area)
+      
+        self.worker.area @= area
         if self.errored (
           goto rwl.area.centerX(area) rwl.area.centerY(area)
-          centext "rwl errored :(" 10 : c#user.theme.primary
+          centext "rwl errored :(" 12 : c#shared.theme.seco
+          if self.errormsg != null (
+            centext self.errormsg 8 : c#shared.theme.prim chy#-20
+          )
           return
         )
+        
+        void rwl.main.RenderElements(self.elements)
       )
     )
   )
@@ -3808,7 +3919,8 @@ object shared @= {
   tab: import("./src/shared/tab.osl"),
   url: import("./src/shared/url.osl"),
   theme: import("./src/shared/theme.osl"),
-  config: import("./src/shared/config.osl")
+  config: import("./src/shared/config.osl"),
+  tab_worker: import("./src/shared/tab_worker.osl")
 }
 
 object layouts @= {
@@ -3816,7 +3928,8 @@ object layouts @= {
     state: import("./src/layouts/shared/state.osl"),
     utils: import("./src/layouts/shared/utils.osl"),
     topbar: import("./src/layouts/shared/topbar.osl"),
-    urlbar: import("./src/layouts/shared/urlbar.osl")
+    urlbar: import("./src/layouts/shared/urlbar.osl"),
+    view: import("./src/layouts/shared/view.osl")
   },
   chromeLike: {
     main: import("./src/layouts/chromeLike/main.osl"),
@@ -3834,11 +3947,19 @@ object net @= {
   response: import("./src/net/response.osl")
 }
 
+object devtools @= {
+  main: import("./src/devtools/main.osl"),
+  
+  menus: {
+  
+  }
+}
+
 void layouts.chromeLike.main.init()
 
 local document2 @= shared.document.Document()
 local document @= shared.document.Document()
-void document.loadUrl(shared.url.Url("appsieThing.flf"))
+void document.loadUrl(shared.url.Url("local://~/projects/phosphorus/main.rwl"))
 void layouts.shared.state.openTabDocument(document)
 void layouts.shared.state.openTabDocument(document2)
 
@@ -3847,3 +3968,13 @@ void layouts.shared.state.selectTab(1)
 mainloop:
   void layouts.chromeLike.main.update()
   //void layouts.summit.main.update()
+  
+  // file dropping
+  if file_dropped != 0 (
+    local data @= open(file_dropped,[3,2,1])
+    local path = data[1] ++ "/" ++ data[2] ++ data[3]
+    local document @= shared.document.Document()
+    void document.loadUrl(shared.url.Url("local://" ++ path))
+    void layouts.shared.state.openTabDocument(document)
+    file_dropped = 0
+  )

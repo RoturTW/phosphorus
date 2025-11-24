@@ -51,6 +51,10 @@ class Document (
   def render(array area) (
     if self.worker != null (
       self.worker.area @= area
+      if !self.worker.alive (
+        self.rwlInst.errored = true
+        self.rwlInst.errormsg = "tab worker died, check code for syntax errors\nyou can also check js console"
+      )
     )
     
     goto rwl.area.centerX(area) rwl.area.centerY(area)
@@ -95,8 +99,8 @@ class Document (
   )
   
   def loadText(string text) (
-    local parser @= rwl.ast.Parser(text)
-    void self.loadAst(parser.parse())
+    void self.createWorker()
+    self.worker.parseText = text
   )
   
   def loadUrl(object url) (

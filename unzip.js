@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const zip = JSON.parse(fs.readFileSync("zip.json", "utf-8"));
+const zip = JSON.parse(fs.readFileSync("phosphorus.json", "utf-8"));
 
 function unzipFile(f, p) {
     if (!fs.existsSync(p))
