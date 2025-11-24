@@ -1,3 +1,4 @@
+import as "glass" from "packages"
 
 // import overwrite
 __import @= import;import @= i -> (i.endsWith(".osl") ? __import(i) open(i))
@@ -28,7 +29,8 @@ object shared @= {
   tab: import("./src/shared/tab.osl"),
   url: import("./src/shared/url.osl"),
   theme: import("./src/shared/theme.osl"),
-  config: import("./src/shared/config.osl")
+  config: import("./src/shared/config.osl"),
+  tab_worker: import("./src/shared/tab_worker.osl")
 }
 
 object layouts @= {
@@ -36,11 +38,17 @@ object layouts @= {
     state: import("./src/layouts/shared/state.osl"),
     utils: import("./src/layouts/shared/utils.osl"),
     topbar: import("./src/layouts/shared/topbar.osl"),
-    urlbar: import("./src/layouts/shared/urlbar.osl")
+    urlbar: import("./src/layouts/shared/urlbar.osl"),
+    view: import("./src/layouts/shared/view.osl")
   },
   chromeLike: {
     main: import("./src/layouts/chromeLike/main.osl"),
     topbar: import("./src/layouts/chromeLike/topbar.osl")
+  },
+  summit: {
+    main: import("./src/layouts/summit/main.osl"),
+    sidebar: import("./src/layouts/summit/sidebar.osl"),
+    topbar: import("./src/layouts/summit/topbar.osl")
   }
 }
 
@@ -49,11 +57,19 @@ object net @= {
   response: import("./src/net/response.osl")
 }
 
+object devtools @= {
+  main: import("./src/devtools/main.osl"),
+  
+  menus: {
+  
+  }
+}
+
 void layouts.chromeLike.main.init()
 
 local document2 @= shared.document.Document()
 local document @= shared.document.Document()
-void document.loadUrl(shared.url.Url("appsieThing.flf"))
+void document.loadUrl(shared.url.Url("local://~/projects/phosphorus/main.rwl"))
 void layouts.shared.state.openTabDocument(document)
 void layouts.shared.state.openTabDocument(document2)
 
@@ -61,3 +77,14 @@ void layouts.shared.state.selectTab(1)
 
 mainloop:
   void layouts.chromeLike.main.update()
+  //void layouts.summit.main.update()
+  
+  // file dropping
+  if file_dropped != 0 (
+    local data @= open(file_dropped,[3,2,1])
+    local path = data[1] ++ "/" ++ data[2] ++ data[3]
+    local document @= shared.document.Document()
+    void document.loadUrl(shared.url.Url("local://" ++ path))
+    void layouts.shared.state.openTabDocument(document)
+    file_dropped = 0
+  )

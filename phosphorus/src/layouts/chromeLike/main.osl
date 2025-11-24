@@ -24,14 +24,12 @@ def update() (
     window.top - 44
   ])
   
-  if true (
-    void layouts.shared.state.currentDocument.render([
-      window.left,
-      window.bottom,
-      window.right,
-      window.top - 45 - 32.5
-    ])
-  )
+  void layouts.shared.view.render([
+    window.left,
+    window.bottom,
+    window.right,
+    window.top - 45 - 32.5
+  ])
   
   void layouts.shared.state.applyDragbox()
 )

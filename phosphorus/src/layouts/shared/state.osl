@@ -27,6 +27,7 @@ def applyDragbox() (
 def openTabDocument(object document) (
   local tab @= shared.tab.Tab(document)
   void self.tabs.append(tab)
+  void self.selectTab(self.tabs.len)
 )
 
 def openEmptyTab() (
@@ -34,13 +35,14 @@ def openEmptyTab() (
 )
 
 def closeTab(number index) (
+  void self.tabs[index].document.close()
   void self.tabs.delete(index)
   
   if index < self.currentTab (
     self.currentTab --
   )
   
-  void self.updateTab()
+  void self.selectTab(self.currentTab)
 )
 
 def selectTab(number index) (
@@ -51,5 +53,5 @@ def selectTab(number index) (
 
 def updateTab() (
   self.currentDocument @= self.tabs[self.currentTab].document
-  self.currentDocument ??= shared.document.Document()
+  //self.currentDocument ??= shared.document.Document()
 )

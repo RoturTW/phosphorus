@@ -1,14 +1,14 @@
 
 class net (
   servers = {
-    rtr: {
-      url: "http://localhost:3000/",
-      
-      // <server>/<command>
-      commands: {
-        tlds: "tlds"
-      }
-    }
+    //rtr: {
+    //  url: "http://localhost:3000/",
+    //  
+    //  // <server>/<command>
+    //  commands: {
+    //    tlds: "tlds"
+    //  }
+    //}
   }
   
   def refresh() (

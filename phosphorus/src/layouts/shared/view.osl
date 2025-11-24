@@ -1,0 +1,26 @@
+
+def render(array area) (
+  local devtoolsData @= devtools.main ?? { width: 0, anchor: "l" }
+  
+  local devtoolsArea @= rwl.area.copy(area)
+  local contentArea @= rwl.area.copy(area)
+  switch devtoolsData.anchor (
+    case "l"
+      contentArea[1] += devtoolsData.width
+      devtoolsArea[3] = contentArea[1]
+      break
+    case "r"
+      contentArea[3] -= devtoolsData.width
+      devtoolsArea[1] = contentArea[3]
+      break
+  )
+  
+  if layouts.shared.state.currentDocument != null (
+    void layouts.shared.state.currentDocument.checkResp()
+    void layouts.shared.state.currentDocument.render(contentArea)
+  )
+  
+  if typeof(devtools) == "object" (
+    void devtools.main.update(devtoolsArea)
+  )
+)

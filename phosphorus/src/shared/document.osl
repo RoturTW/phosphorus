@@ -1,7 +1,28 @@
 
 class Document (
   def init() (
-    self.createInsts()
+    void self.createInsts()
+    
+    void self.createWorker()
+  )
+  
+  def close() (
+    void self.killWorker()
+  )
+  
+  def createWorker() (
+    log "create worker"
+    void killWorker()
+    self.worker @= worker(shared.tab_worker)
+    self.worker.document @= self
+  )
+  
+  def killWorker() (
+    if self.worker != null (
+      log "kill worker"
+      void self.worker.kill()
+      self.worker = null
+    )
   )
   
   def createInsts() (
@@ -24,12 +45,16 @@ class Document (
   )
   
   def update(array area) (
-    void self.checkResp()
     void self.rwlInst.update(area)
   )
   
   def render(array area) (
-    void self.checkResp()
+    if self.worker != null (
+      self.worker.area @= area
+    )
+    
+    goto rwl.area.centerX(area) rwl.area.centerY(area)
+    square rwl.area.width(area) - 10 rwl.area.height(area) - 10 10 : c#shared.theme.back
     
     if self.loading (
       goto rwl.area.centerX(area) rwl.area.centerY(area)
@@ -38,6 +63,7 @@ class Document (
       return
     )
     
+    //log self.rwlInst
     void self.rwlInst.render(area)
   )
   

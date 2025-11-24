@@ -1,0 +1,7 @@
+
+anchor = "r"
+width = 200
+
+def update(array area) (
+  void shared.graphics.box(area, #0ff)
+)

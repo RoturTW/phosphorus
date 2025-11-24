@@ -1,0 +1,31 @@
+
+def update(array area) (
+  goto rwl.area.centerX(area) rwl.area.centerY(area)
+  square rwl.area.width(area) - 10 rwl.area.height(area) - 10 10 : c#shared.theme.back
+  
+  local btns @= layouts.shared.topbar.defaultButtons
+  void layouts.shared.topbar.winButtons(btns, false)
+  
+  local titlebarX = max(area[1], window.left + 30)
+  goto titlebarX + 10 rwl.area.centerY(area)
+  if layouts.shared.state.currentDocument != null (
+    local icn = layouts.shared.state.currentDocument.getIcon()
+    if icn != null (
+      icon icn 1 : c#fff chx#7.5
+      change_x 17.5
+    )
+    text layouts.shared.state.currentDocument.getTitle() 10 : c#shared.theme.text
+  )
+  
+  frame area[1] area[4] titlebarX area[2] (
+    goto 0 0
+    square frame.width - 5 25 0 0 1
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        layouts.summit.sidebar.open = true
+      )
+    )
+    icon "right" .6 : c#shared.theme.text chx#5
+  )
+)

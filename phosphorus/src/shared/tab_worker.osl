@@ -1,0 +1,10 @@
+
+def oncreate() (
+  log "woc" self
+)
+
+def onframe() (
+  if self.area != null (
+    void self.document.rwlInst.checkUpdate(self.area)
+  )
+)

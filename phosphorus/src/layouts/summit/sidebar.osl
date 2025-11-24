@@ -1,0 +1,108 @@
+
+open_width = 250
+
+width = 200
+tar_width = open_width
+open = true
+
+def update(array area) (
+  goto rwl.area.centerX(area) rwl.area.centerY(area)
+  square rwl.area.width(area) - 20 rwl.area.height(area) - 20 10 : c#shared.theme.back
+  
+  frame area[1] + 10 area[4] - 10 area[3] - 10 area[4] - 35 (
+    //square 1000 1000 1000 : c#fff
+    goto frame.right - 12.5 0
+    square 20 20 0 0 1 : c#fff
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        self.open = false
+      )
+    )
+    goto frame.right - 12.5 0
+    icon "left" .6 : c#shared.theme.text
+    
+    goto frame.left + 12.5 0
+    square 20 20 0 0 1 : c#fff
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        void layouts.shared.state.openEmptyTab()
+      )
+    )
+    icon "add" .6 : c#shared.theme.text
+  )
+  
+  void layouts.shared.urlbar.update([
+    area[1] + 10,
+    area[4] - 40 - 32.5,
+    area[3] - 10,
+    area[4] - 40 - 2.5
+  ])
+  
+  local height = 1000
+  c shared.theme.prim
+  frame area[1] + 5 area[4] - 40 - 35 area[3] - 5 area[2] + 5 height "browser_sidebar" (
+    local y = frame.top + frame.scroll
+    
+    for i layouts.shared.state.tabs.len (
+      local tab @= layouts.shared.state.tabs[i]
+      
+      local title = tab.document.getTitle()
+      local icon = tab.document.getIcon()
+      y -= 20
+      
+      local close_touching = false
+      
+      goto frame.right - 22.5 y
+      square 15 15 0 0 1
+      local close_touching = mouse_touching
+      
+      goto 0 y
+      c layouts.shared.state.currentTab == i ? shared.theme.seco shared.theme.prim
+      square frame.width - 25 20 15 : hover_c#shared.theme.tert
+      if mouse_touching and !close_touching (
+        cursor "pointer"
+        if onclick (
+          void layouts.shared.state.selectTab(i)
+        )
+      )
+      square frame.width - 25 20 10 : c#shared.theme.back
+      
+      goto frame.left + 15 y
+      if icon != null (
+        icon icon .9 : c#user.theme.text chx#7.5
+        change_x 15
+      )
+      text title.trimText(frame.right - x_position / 9 - 4) 9 : c#shared.theme.text tooltip#title
+      
+      goto frame.right - 22.5 y
+      square 15 15 0 0 1
+      if mouse_touching (
+        cursor "pointer"
+        if onclick (
+          void layouts.shared.state.closeTab(i)
+          i --
+        )
+      )
+      icon "close" .5
+      
+      y -= 20
+    )
+  )
+  
+  // clicking on the left side of the window opens the sidebar
+  if self.width < 25 (
+    goto window.left 0
+    square 20 window.height 0 0 1
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        self.open = true
+      )
+    )
+  )
+  
+  self.tar_width = self.open ? self.open_width 5
+  self.width += self.tar_width - self.width * min(delta_time, 0.02) * 10
+)

@@ -6,17 +6,23 @@ class Url (
   
   def parse(string text) (
     self.text = text
-    local match = text.match("/^((\\w+):\\/\\/)?(((\\w+)\\.)?(\\w+)(\\.(\\w+))?\\/?(([\\/w]+)?(\\/(\\w+\\.\\w+))?))\\/?/")
+    local s @= text.match("/^((\\w+):\\/\\/)/")
+    local match @= text.match("/^((\\w+):\\/\\/)?(((\\w+)\\.)?(\\w+)(\\.(\\w+))?\\/?(([\\/w]+)?(\\/(\\w+\\.\\w+))?))\\/?/")
     
-    self.scheme = match[3] ?? shared.config.url.defaults.scheme
+    self.scheme = match[3] ?? s[3] ?? shared.config.url.defaults.scheme
     
     if self.scheme == "local" (
-      self.domain_name = match[4]
+      self.domain_name = text.trim("local://".len + 1, -1)
+      local usrPath = "origin/(c) users/" ++ username
+      if self.domain_name.toLower().startsWith(usrPath.toLower()) (
+        self.domain_name = "~" ++ self.domain_name.trim(usrPath.len + 1, -1)
+      )
       self.domain_top = null
       self.domain_sub = null
       self.path = null
       self.params @= {}
       self.resource = null
+      self.text = "local://" ++ self.domain_name
       return
     )
     

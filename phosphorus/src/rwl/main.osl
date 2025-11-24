@@ -132,8 +132,10 @@ class RWLContainer extends RWLNode (
   
   def render() (
     void self.renderBackground()
-    //void rwl.debug.box(self.area)
-    //void rwl.debug.box(self.childArea, #0f0)
+    if rwl.main.debug (
+      void rwl.debug.box(self.area)
+      void rwl.debug.box(self.childArea, #0f0)
+    )
     void rwl.main.RenderElements(self.children)
   )
   
@@ -619,14 +621,18 @@ class RWL (
   )
   
   def update(array area) (
-    local out @= rwl.main.UpdateElements(self.elements, area, {inst: self})
+    local out @= rwl.main.UpdateElements(self.elements, area, {
+      inst: self,
+      root: true
+    })
     if out.isError (
       error out.stringify()
       self.errored = true
+      self.errormsg = out.stringify()
     )
   )
   
-  def render(array area) (
+  def checkUpdate(array area) (
     local w = rwl.area.width(area)
     local h = rwl.area.height(area)
     
@@ -638,16 +644,22 @@ class RWL (
       self._lastH = h
     )
     
+    log self self.needsUpdate
     if self.needsUpdate (
       void self.update(area)
       self.needsUpdate = false
     )
-    
-    void rwl.main.RenderElements(self.elements)
+  )
+  
+  def render(array area) (
+    self.worker.area @= area
     if self.errored (
       goto rwl.area.centerX(area) rwl.area.centerY(area)
       centext "rwl errored :(" 10 : c#user.theme.primary
+      centext self.errormsg 8 : c#user.theme.primary
       return
     )
+    
+    void rwl.main.RenderElements(self.elements)
   )
 )
