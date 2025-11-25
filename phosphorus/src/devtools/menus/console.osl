@@ -1,0 +1,76 @@
+
+def getInst() (
+  return layouts.shared.state.currentDocument.rtrInst
+)
+
+def topbar() (
+  local inst @= self.getInst()
+  
+  goto frame.left + 10 0
+  square 15 15 0 0 1
+  if inst != null (
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        inst.console @= []
+      )
+    )
+    c shared.theme.text
+  ) else (
+    if mouse_touching (
+      cursor "not-allowed"
+    )
+    c shared.theme.seco
+  )
+  icon "w 2.5 cutcircle 0 0 10 0 180 line -6 -6 6 6" .7
+)
+
+def update() (
+  local inst @= self.getInst()
+  
+  local y = frame.top
+  local start = y
+  
+  for ii inst.console.len (
+    local item @= inst.console[ii]
+    local lines @= item[2].wrapText(frame.width - 10 / 10).split("\n")
+    local height = lines.len * 20
+    
+    local col = null
+    if item[1] == "err" (
+      col = #f00
+    )
+    
+    local ly = y
+    local sy = y
+    
+    y -= 5
+    y -= height
+    y -= 5
+    
+    if col != null (
+      frame frame.left y frame.right ly (
+        c col
+        pen "opacity" 20
+        pen "size" 10000
+        pen "down"
+        pen "up"
+      )
+    )
+    
+    for i lines.len (
+      ly -= 10
+      goto frame.left + 5 ly - 5
+      text lines[i] 10 : c#shared.theme.text
+      ly -= 10
+    )
+    
+    pen "size" 2 : c#shared.theme.prim
+    
+    goto 0 sy
+    line frame.left 0 frame.right 0
+    
+    goto 0 y
+    line frame.left 0 frame.right 0
+  )
+)

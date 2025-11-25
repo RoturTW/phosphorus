@@ -22,7 +22,7 @@ def drawElement(object element) (
     self.y -= 15
     goto 0 self.y
     
-    element.dvt_open ??= true
+    element.dvt_open ??= false
     
     goto self.x self.y
     square 20 20 0 0 1 : c#fff

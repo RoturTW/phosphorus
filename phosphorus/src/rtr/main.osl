@@ -42,11 +42,15 @@ class Module (
     void self.setScopeVar("true", rtr.value.RTRBoolValue(true))
     void self.setScopeVar("false", rtr.value.RTRBoolValue(false))
     
-    cFunc("log", def(args) -> (
-      log args.map(a -> a.stringify()).join(" ")
+    cFunc("log", def(args, inst) -> (
+      local txt = args.map(a -> a.stringify()).join(" ")
+      log txt
+      void inst.inst.console.append(["log", txt])
     ))
-    cFunc("error", def(args) -> (
-      throw args[1].stringify()
+    cFunc("error", def(args, inst) -> (
+      local txt = args.map(a -> a.stringify()).join(" ")
+      void inst.inst.console.append(["err", txt])
+      throw txt
     ))
     cFunc("return", def(args, inst) -> (
       local val @= args[1]
@@ -245,7 +249,6 @@ class Module (
         return rtr.value.RTRNullValue()
       case "for"
         local arr @= self.runExpression(statement.arr).arrify()
-        log arr
         for i arr.len (
           void self.newScope({})
           void self.declScopeVar(statement.var, arr[i])
@@ -430,10 +433,12 @@ class Module (
 class RTR (
   def init() (
     self.modules @= {}
+    self.console @= []
   )
 
   def addModule(object mod) (
     local key @= OuidNew()
+    mod.inst @= self
     self.modules[key] @= mod
     return key
   )

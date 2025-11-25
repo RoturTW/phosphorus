@@ -1,24 +1,66 @@
 
-anchor = "r"
-width = 350
+string anchor = "r"
+number width = 350
+number resizingEdge = 0
 
-menu = "elements"
+menu = "console"
 
-def update(array area) (
+def update(array area, array rawArea) (
   goto rwl.area.centerX(area) rwl.area.centerY(area)
   square rwl.area.width(area) - 10 rwl.area.height(area) - 10 10 : c#shared.theme.back
-  
-  local menus @= devtools.menus.getEntries()
-  //log menus
   
   local h = 25
   frame area[1] area[4] area[3] area[4] - h (
     void devtools.topbar.update()
   )
   
+  if mouse_y > area[2] and mouse_y < area[4] (
+    if anchor == "r" and abs(mouse_x - area[1]) < 5 (
+      cursor "col-resize"
+      goto mouse_x mouse_y
+      square 100 100 0 0 1
+      if onclick (
+        self.resizingEdge = 1
+      )
+    )
+    if anchor == "l" and abs(mouse_x - area[3]) < 5 (
+      cursor "col-resize"
+      goto mouse_x mouse_y
+      square 100 100 0 0 1
+      if onclick (
+        self.resizingEdge = 3
+      )
+    )
+  )
+  
+  if !mouse_down (
+    self.resizingEdge = 0
+  )
+  
+  if self.resizingEdge != 0 (
+    self.width = abs(mouse_x - area[4 - self.resizingEdge])
+  )
+  self.width = min(self.width, rwl.area.width(rawArea) - 200)
+  self.width = max(self.width, 200)
+  
   local menu @= devtools.menus[self.menu]
+  
   c shared.theme.prim
-  frame area[1] area[4] - h area[3] area[2] [menu.width,menu.height] "devtools_" ++ self.menu (
+  local topbarH = 0
+  if menu.topbar != null (
+    topbarH = 25
+    frame area[1] area[4] - h area[3] area[4] - h - topbarH (
+      void menu.topbar()
+    )
+    local w = rwl.area.width(area)
+    goto rwl.area.centerX(area) area[4] - h - topbarH
+    pen "size" 2
+    line w / -2 -1 w / 2 -1 : c#shared.theme.prim
+    topbarH += 1
+  )
+  
+  c shared.theme.prim
+  frame area[1] area[4] - h - topbarH area[3] area[2] [menu.width,menu.height] "devtools_" ++ self.menu (
     if menu != null (
       if menu.update != null (
         void menu.update()

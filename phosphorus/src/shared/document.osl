@@ -64,6 +64,7 @@ class Document (
       goto rwl.area.centerX(area) rwl.area.centerY(area)
       direction timer * 720
       icon "sync" .75 : c#shared.theme.text
+      direction 90
       return
     )
     

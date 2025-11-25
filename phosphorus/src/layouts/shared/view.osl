@@ -23,6 +23,6 @@ def render(array area) (
   )
   
   if typeof(devtools) == "object" (
-    void devtools.main.update(devtoolsArea)
+    void devtools.main.update(devtoolsArea, area)
   )
 )
