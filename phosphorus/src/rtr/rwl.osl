@@ -27,6 +27,14 @@ class RTRDocument extends rtr.value.RTRValue (
           void doc.doc.loadUrl(shared.url.Url(args[1].stringify()))
           void layouts.shared.state.updateTab()
         ), self)
+      case "getElement"
+        return rtr.value.RTROslFuncValue(def(args, _inst, doc) -> (
+          local elem @= doc.doc.rwlInst.getElement(args[1].stringify())
+          if elem == null (
+            return rtr.value.RTRNullValue()
+          )
+          return rtr.rwl.RTRElement(elem)
+        ), self)
       default
         throw "unknown property" + key.stringify() + "on document"
     )
@@ -44,6 +52,133 @@ class RTRDocument extends rtr.value.RTRValue (
         throw "cannot set property" + key.stringify() + "on document"
     )
   )
+)
+
+class RTRElement extends rtr.value.RTRValue (
+  def init(object elem) (
+    self.elem @= elem
+  )
+
+  def getRtrType() (
+    return rtr.value.RTRTypeValue({
+      name: "element"
+    })
+  )
+  
+  def stringify() (
+    local txt = self.elem.kind.toStr()
+    if self.elem.id != null (
+      txt ++= ":" ++ self.elem.id
+    )
+    return "<" ++ txt ++ ">"
+  )
+  
+  def getItem(key) (
+    local k = key.stringify()
+    
+    switch k (
+      case "toggleFlag"
+        return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
+          local flags @= elem.elem.header.flags
+          local name = args[1].stringify()
+          
+          if flags.contains(name) (
+            void flags.delete(flags.index(name))
+          ) else (
+            void flags.append(name)
+          )
+          
+          elem.elem.needsUpdate = true
+          void elem.elem.checkUpdate()
+        ), self)
+      case "addFlag"
+        return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
+          local flags @= elem.elem.header.flags
+          local name = args[1].stringify()
+          
+          if !flags.contains(name) (
+            void flags.append(name)
+          )
+          
+          elem.elem.needsUpdate = true
+          void elem.elem.checkUpdate()
+        ), self)
+      case "removeFlag"
+        return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
+          local flags @= elem.elem.header.flags
+          local name = args[1].stringify()
+          
+          if flags.contains(name) (
+            void flags.delete(flags.index(name))
+          )
+          
+          elem.elem.needsUpdate = true
+          void elem.elem.checkUpdate()
+        ), self)
+      case "hasFlag"
+        return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
+          local flags @= elem.elem.header.flags
+          local name = args[1].stringify()
+          
+          return rtr.value.RTRBoolValue(flags.contains(name))
+        ), self)
+    )
+    
+    for i self.elem.header.pairs.len (
+      local pair @= self.elem.header.pairs[i]
+      if pair[1] == k (
+        return rtr.rwl.rwlValueToRtrValue(pair[2])
+      )
+    )
+    return rtr.value.RTRNullValue()
+  )
+  
+  def setItem(key, value) (
+    local k = key.stringify()
+    local v @= rtr.rwl.rtrValueToRwlValue(value)
+    for i self.elem.header.pairs.len (
+      local pair @= self.elem.header.pairs[i]
+      if pair[1] == k (
+        pair[2] @= v
+        self.elem.needsUpdate = true
+        void self.elem.checkUpdate()
+        return
+      )
+    )
+    
+    void self.elem.header.pairs.append([
+      k, v
+    ])
+    
+    self.elem.needsUpdate = true
+    void self.elem.checkUpdate()
+  )
+)
+
+def rwlValueToRtrValue(object val) (
+  switch val.type (
+    case "str"
+      return rtr.value.RTRStrValue(val.value)
+    case "num"
+      return rtr.value.RTRNumValue(val.value)
+    // percentage
+    // color
+  )
+  
+  return rtr.value.RTRNullValue()
+)
+
+def rtrValueToRwlValue(object val) (
+  local type @= val.getRtrType()
+  
+  switch type.data.name (
+    case "str"
+      return rwl.value.RWLStrValue(val.value)
+    case "num"
+      return rwl.value.RWLNumValue(val.value)
+  )
+  
+  throw "cannot set" + type.stringify() + "as rwl property"
 )
 
 // applies all rwl related apis to rtr

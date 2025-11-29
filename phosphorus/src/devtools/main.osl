@@ -1,5 +1,5 @@
 
-string anchor = "r"
+string anchor = "l"
 number width = 350
 boolean open = false
 
@@ -10,8 +10,11 @@ hoveredElement = 0
 
 menu = "console"
 
-def update(array area, array rawArea) (
+def alwaysUpdate() (
   self.hoveredElement = 0
+)
+
+def update(array area, array rawArea) (
   goto rwl.area.centerX(area) rwl.area.centerY(area)
   square rwl.area.width(area) - 10 rwl.area.height(area) - 10 10 : c#shared.theme.back
   

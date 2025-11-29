@@ -1,6 +1,5 @@
 
 class RTRValue (
-  boolean isReturnVal = false
   def callFunc() (
     throw "cannot call" + self.stringify(true) + "as function"
   )
@@ -264,6 +263,7 @@ class RTRArrValue extends RTRValue (
   def getItem(index) (
     return self.elements[index.numbify() + 1]
   )
+  // setItem
 )
 
 class RTRObjValue extends RTRValue (

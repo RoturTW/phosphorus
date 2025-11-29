@@ -22,7 +22,7 @@ def drawElement(object element) (
     self.y -= 15
     goto 0 self.y
     
-    element.dvt_open ??= false
+    element.dvt_open ??= false or true
     
     goto self.x self.y
     square 20 20 0 0 1 : c#fff
@@ -99,6 +99,12 @@ def drawElement(object element) (
     drawValue(element.value)
     drawHeader(element.header)
     self.maxX = max(self.maxX, x_position)
+    local w = x_position - self.x
+    goto x_position + self.x / 2 self.y
+    square w 20 0 0 1
+    if mouse_touching (
+      devtools.main.hoveredElement = element.elemI
+    )
     self.y -= 15
   ) else if element.kind == "icon" (
     self.y -= 15
@@ -120,6 +126,9 @@ def drawHeader(object header) (
   for i header.flags.len (
     local flag = header.flags[i]
     text flag 8
+    if i < header.flags.len or header.pairs.len > 0 (
+      text ", " 8
+    )
   )
   
   for i header.pairs.len (

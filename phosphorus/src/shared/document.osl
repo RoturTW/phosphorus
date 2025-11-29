@@ -12,7 +12,7 @@ class Document (
   
   def createWorker() (
     //log "create worker"
-    void killWorker()
+    void self.killWorker()
     self.worker @= worker(shared.tab_worker)
     self.worker.document @= self
   )

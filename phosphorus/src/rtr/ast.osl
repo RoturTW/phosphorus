@@ -103,7 +103,11 @@ class Parser (
     local statements @= []
     local end = peek() == "}"
     while !end (
-      local out @= top ? self.topLevelStatement() self.statement()
+      if top (
+        local out @= self.topLevelStatement()
+      ) else (
+        local out @= self.statement()
+      )
       if out != null (
         void statements.append(out)
       )

@@ -6,8 +6,9 @@ class RWLNode (
   def initGlobal() (
     self.elemI = rwl.main.elemI
     rwl.main.elemI ++
+    self.updateGlobal()
   )
-  def updateGlobal() (
+  def updateGlobal(area, context) (
     self.id = null
     
     local id @= self.expectOnHeader("id", "str")
@@ -17,6 +18,24 @@ class RWLNode (
     if id != null (
       self.id = id.value
     )
+    
+    self.cu_area @= area
+    self.cu_context @= context
+    void self.checkUpdate()
+  )
+  
+  def checkUpdate() (
+    if self.needsUpdate (
+      self.needsUpdate = false
+      void self.update(self.cu_area, self.cu_context)
+    )
+    
+    // used when this was a branch like system
+    //if self.children != null (
+    //  for i self.children.len (
+    //    void self.children[i].checkUpdate()
+    //  )
+    //)
   )
   
   def update() (
@@ -28,7 +47,7 @@ class RWLNode (
   )
   
   def interactUpdate() (
-  
+    
   )
   
   def render() (
@@ -82,13 +101,13 @@ class RWLNode (
       ) else if n == name ++ "_y" (
         b = value.value
         t = value.value
-      ) else if n == name ++ "_l" (
+      ) else if n == name ++ "_l" or n == name ++ "_left" (
         l = value.value
-      ) else if n == name ++ "_r" (
+      ) else if n == name ++ "_r" or n == name ++ "_right" (
         r = value.value
-      ) else if n == name ++ "_b" (
+      ) else if n == name ++ "_b" or n == name ++ "_bottom" (
         b = value.value
-      ) else if n == name ++ "_t" (
+      ) else if n == name ++ "_t" or n == name ++ "_top" (
         t = value.value
       )
     )
@@ -115,7 +134,7 @@ class RWLContainer extends RWLNode (
   def update(array area, object context) (
     void self.updateBackgroundColor()
     void self.updateBackground(area)
-    void self.updateGlobal()
+    void self.updateGlobal(area, context)
     
     local childArea @= rwl.area.pad(area, self.getPadding())
     
@@ -172,6 +191,11 @@ class RWLContainer extends RWLNode (
   )
   
   def render() (
+    if self.header.flags.contains("Hidden") (
+      void self.renderDevtools()
+      return
+    )
+    
     void self.renderBackground()
     if rwl.main.debug (
       void rwl.debug.box(self.area, #f00)
@@ -245,7 +269,9 @@ class RWLContainer extends RWLNode (
         ], #0f0, 20)
       )
       
-      void shared.graphics.filledTransparentArea(self.childArea, #0ff, 20)
+      if self.name != "RWLFrame" (
+        void shared.graphics.filledTransparentArea(self.childArea, #0ff, 20)
+      )
     )
   )
   
@@ -278,7 +304,7 @@ class RWLFrame extends RWLContainer (
   def update(array area, object context) (
     void self.updateBackgroundColor()
     void self.updateBackground(area)
-    void self.updateGlobal()
+    void self.updateGlobal(area, context)
     
     local dir = "x"
     local flipped = false
@@ -366,12 +392,51 @@ class RWLFrame extends RWLContainer (
       )
       amount += size
     )
+    if dir == "x" (
+      self.usedArea @= [
+        flipped ? (area[3] - amount) (area[1]),
+        area[2],
+        flipped ? (area[3]) (area[1] + amount),
+        area[4]
+      ]
+      self.unusedArea @= [
+        flipped ? (area[1]) (area[1] + amount),
+        area[2],
+        flipped ? (area[3] - amount) (area[3]),
+        area[4]
+      ]
+    ) else if dir == "y" (
+      self.usedArea @= [
+        area[1],
+        flipped ? (area[2]) (area[4] - amount),
+        area[3],
+        flipped ? (area[2] + amount) (area[4])
+      ]
+      self.unusedArea @= [
+        area[1],
+        flipped ? (area[2] + amount) (area[2]),
+        area[3],
+        flipped ? (area[4]) (area[4] - amount)
+      ]
+    )
   )
   
   def render() (
+    if self.header.flags.contains("Hidden") (
+void self.renderFrameDevtools()
+      return
+    )
+    
     void self.renderBackground()
     void rwl.main.RenderElements(self.children)
-    void self.renderDevtools()
+    void self.renderFrameDevtools()
+  )
+  
+  def renderFrameDevtools() (
+    if self.elemI == devtools.main.hoveredElement (
+      void shared.graphics.filledTransparentArea(self.usedArea, #0ff, 20)
+      void shared.graphics.filledTransparentArea(self.unusedArea, #00f, 20)
+    )
   )
 )
 
@@ -387,7 +452,7 @@ class RWLSection extends RWLContainer (
 
 class RWLPositionedContainer extends RWLContainer (
   def update(array containerArea, object context) (
-    void self.updateGlobal()
+    void self.updateGlobal(area, context)
     
     local height = self.expectOnHeader("height", "num").value ?? 20
     
@@ -435,6 +500,11 @@ class RWLPositionedContainer extends RWLContainer (
   )
   
   def render() (
+    if self.header.flags.contains("Hidden") (
+      void self.renderDevtools()
+      return
+    )
+    
     void self.renderBackground()
     if rwl.main.debug (
       void rwl.debug.box(self.area, #f00)
@@ -532,9 +602,11 @@ class RWLElement extends RWLNode (
   def init(object value, object header) (
     self.value @= value
     self.header @= header
+    void self.initGlobal()
   )
   
   def update(array area, object context) (
+    void self.updateGlobal(area, context)
     local text = null
     
     switch self.value.type (
@@ -570,11 +642,7 @@ class RWLElement extends RWLNode (
     line_height = spacing["line_height"] ?? 1
     
     // positioning
-    local padding @= self.expectOnHeader("padding", "num")
-    if padding.isError (
-      return padding
-    )
-    padding = padding["value"] ?? 0
+    local padding @= self.getPadding()
     
     local anchor @= self.expectOnHeader("anchor", "str")
     if anchor.isError (
@@ -604,20 +672,20 @@ class RWLElement extends RWLNode (
       local anchorYType = "c"
       
       if anchor.endsWith("l") or anchor.endsWith("left") (
-        anchorX = area[1] + padding
+        anchorX = area[1] + padding[1]
         anchorXType = "l"
       )
       if anchor.endsWith("r") or anchor.endsWith("right") (
-        anchorX = area[3] - padding
+        anchorX = area[3] - padding[3]
         anchorXType = "r"
       )
       
       if anchor.startsWith("t") or anchor.endsWith("top") (
-        anchorY = area[4] - padding
+        anchorY = area[4] - padding[4]
         anchorYType = "t"
       )
       if anchor.startsWith("b") or anchor.endsWith("bottom") (
-        anchorY = area[2] + padding
+        anchorY = area[2] + padding[2]
         anchorYType = "b"
       )
       
@@ -658,7 +726,7 @@ class RWLElement extends RWLNode (
     if color.isError (
       return color
     )
-    color = color["value"]
+    color = color.value
     if color != null (
       context.color = color
     )
@@ -707,11 +775,17 @@ class RWLElement extends RWLNode (
       x + (width / 2),
       context.y + (height / 2)
     ]
+    self.padding @= padding
     
     context.y -= height / (context.anchorY == "b" ? -2 2)
   )
   
   def render() (
+    if self.header.flags.contains("Hidden") (
+      void self.renderDevtools()
+      return
+    )
+    
     for lineI self.lines.len (
       local line @= self.lines[lineI]
       void shared.graphics.ptext(line[1], line[2], line[3], line[4], line[5])
@@ -719,6 +793,45 @@ class RWLElement extends RWLNode (
     
     void rwl.debug.box(self.debugArea ?? [])
     void self.renderDevtools()
+  )
+  
+  def renderDevtools() (
+    if self.elemI == devtools.main.hoveredElement (
+      void shared.graphics.filledTransparentArea(self.debugArea, #0ff, 20)
+      
+      local fullArea = rwl.area.margin(self.debugArea, self.padding)
+     
+      if fullArea != null (
+        // left
+        void shared.graphics.filledTransparentArea([
+          fullArea[1],
+          fullArea[2],
+          self.debugArea[1],
+          fullArea[4]
+        ], #f0f, 20)
+        // right
+        void shared.graphics.filledTransparentArea([
+          self.debugArea[3],
+          fullArea[2],
+          fullArea[3],
+          fullArea[4]
+        ], #f0f, 20)
+        // top
+        void shared.graphics.filledTransparentArea([
+          self.debugArea[1],
+          self.debugArea[4],
+          self.debugArea[3],
+          fullArea[4]
+        ], #f0f, 20)
+        // bottom
+        void shared.graphics.filledTransparentArea([
+          self.debugArea[1],
+          fullArea[2],
+          self.debugArea[3],
+          self.debugArea[2]
+        ], #f0f, 20)
+      )
+    )
   )
 )
 
@@ -753,6 +866,11 @@ class RWLIcon extends RWLNode (
   )
   
   def render() (
+    if self.header.flags.contains("Hidden") (
+      void self.renderDevtools()
+      return
+    )
+    
     void shared.graphics.picon(self.src, self.x, self.y, self.scale, self.color ?? "#fff")
     void self.renderDevtools()
   )
@@ -933,6 +1051,16 @@ class RWL (
     void shared.input.reset()
   )
   
+  def checkElemUpdate() (
+    if self.errored (
+      return
+    )
+  
+    for i self.elements.len (
+      void self.elements[i].checkUpdate()
+    )
+  )
+  
   def render(array area) (
     void self.checkUpdate(area)
   
@@ -947,5 +1075,22 @@ class RWL (
     )
     
     void rwl.main.RenderElements(self.elements)
+  )
+  
+  def getElement(string id) (
+    local queue @= [...self.elements]
+    while queue.len > 0 (
+      local elem @= queue.shift()
+      
+      if elem.id == id (
+        return elem
+      )
+      
+      if elem.children != null (
+        for i elem.children.len (
+          void queue.append(elem.children[i])
+        )
+      )
+    )
   )
 )

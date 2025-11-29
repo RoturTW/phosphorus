@@ -27,3 +27,12 @@ def pad(area, pad) (
     area[4] - pad[4]
   ]
 )
+
+def margin(area, mar) (
+  return [
+    area[1] - mar[1],
+    area[2] - mar[2],
+    area[3] + mar[3],
+    area[4] + mar[4]
+  ]
+)

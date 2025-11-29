@@ -57,7 +57,7 @@ class Url (
     if self.path != null (
       txt ++= "/" ++ self.path
     )
-    if self.file_name != "index.osl" (
+    if self.file_name != "index.rwl" (
       txt ++= "/" ++ self.file_name
     )
     return txt
