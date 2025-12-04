@@ -1,0 +1,22 @@
+root {
+  frame [Horizontal] {
+    section [id="sidebar", size=200] {
+      
+    }
+  },
+  
+  script {
+    pages := {
+      general: [
+        "hi"
+      ],
+      privacy: [
+      
+      ]
+    };
+    
+    for (i, pages.keys()) {
+      
+    }
+  }
+}

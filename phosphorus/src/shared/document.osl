@@ -4,8 +4,7 @@ class Document (
     void self.createInsts()
     
     self.started = false
-    
-    void self.createWorker()
+    self.shouldBeAlive = false
   )
   
   def close() (
@@ -17,13 +16,18 @@ class Document (
     void self.killWorker()
     self.worker @= worker(shared.tab_worker)
     self.worker.document @= self
+    self.shouldBeAlive = true
   )
   
   def killWorker() (
     if self.worker != null (
       //log "kill worker"
+      if self.worker.kill == null (
+        return
+      )
       void self.worker.kill()
       self.worker = null
+      self.shouldBeAlive = false
     )
   )
   
@@ -57,9 +61,10 @@ class Document (
   def render(array area) (
     if self.worker != null (
       self.worker.area @= area
-      if !self.worker.alive (
-        self.rwlInst.errored = true
-        self.rwlInst.errormsg = "tab worker died, check js console"
+      if !self.worker.alive and self.shouldBeAlive (
+        //void self.createWorker()
+        //self.rwlInst.errored = true
+        //self.rwlInst.errormsg = "tab worker died, check js console"
       )
     )
     

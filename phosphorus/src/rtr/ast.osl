@@ -129,6 +129,45 @@ class Parser (
       return self.event()
     )
     
+    void self.consumeWhitespace()
+    
+    // global parsing
+    local ptr = self.pointer
+    
+    local start @= self.getPos()
+    local name = self.consume()
+    if name.match("/^[a-zA-Z_0-9]+$/") != null (
+      void self.consumeWhitespace()
+      if self.peek() == ":" (
+        void self.consume()
+        void self.expect("=")
+        local expr @= self.expression()
+        void self.expect(";")
+        return {
+          kind: "global",
+          name,
+          val: expr,
+          auto: true,
+          start, end: self.getPos()
+        }
+      )
+      if self.peek() == "=" (
+        void self.consume()
+        local expr @= self.expression()
+        void self.expect(";")
+        return {
+          kind: "global",
+          name,
+          val: expr,
+          start, end: self.getPos()
+        }
+      )
+    )
+    
+    self.pointer = ptr
+    
+    void self.consumeWhitespace()
+    
     throw "unexpected token '" ++ self.peek() ++ "'"
   )
   
@@ -731,6 +770,10 @@ class Parser (
       return self.obj()
     )
     
+    if self.peek() == "#" (
+      return self.color()
+    )
+    
     if ["'","\"","`"].contains(self.peek()) (
       return self.str()
     )
@@ -749,6 +792,33 @@ class Parser (
     )
     
     throw "unexpected token '" ++ self.peek() ++ "'"
+  )
+  
+  def arr() (
+    void self.expect("[")
+    
+    local elems @= []
+    
+    local end = self.peek() == "]"
+    while !end (
+      local expr @= self.expression()
+      void elems.append(expr)
+      
+      void self.consumeWhitespace()
+      if self.peek() == "]" or self.atEnd() (
+        end = true
+      ) else (
+        void self.expect(",")
+      )
+      void self.consumeWhitespace()
+    )
+    
+    void self.expect("]")
+    
+    return {
+      kind: "arr",
+      elems
+    }
   )
   
   def obj() (
@@ -783,30 +853,17 @@ class Parser (
     }
   )
   
-  def arr() (
-    void self.expect("[")
-    
-    local elems @= []
-    
-    local end = self.peek() == "]"
-    while !end (
-      local expr @= self.expression()
-      void elems.append(expr)
-      
-      void self.consumeWhitespace()
-      if self.peek() == "]" or self.atEnd() (
-        end = true
-      ) else (
-        void self.expect(",")
-      )
-      void self.consumeWhitespace()
+  def color() (
+    local start @= self.getPos()
+    void self.expect("#")
+    local value = self.consume()
+    if ![3,6].contains(value.len) (
+      throw "hex values can only be 3 or 6 characters long"
     )
-    
-    void self.expect("]")
-    
     return {
-      kind: "arr",
-      elems
+      kind: "color",
+      val: "#" ++ value,
+      start, end: self.getPos()
     }
   )
   

@@ -26,6 +26,10 @@ def goto() (
   
   url @= shared.url.Url(url)
   
+  if layouts.shared.state.tabs.len == 0 (
+    void layouts.shared.state.openEmptyTab()
+  )
+  
   local tab @= layouts.shared.state.tabs[layouts.shared.state.currentTab]
   void tab.redirect(url)
 )

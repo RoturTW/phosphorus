@@ -452,10 +452,10 @@ case "./src/layouts/summit/sidebar.osl"
         area[4] - 40 - 2.5
       ])
       
-      local height = 1000
       c shared.theme.prim
-      frame area[1] + 5 area[4] - 40 - 35 area[3] - 5 area[2] + 5 height "browser_sidebar" (
+      frame area[1] + 5 area[4] - 40 - 35 area[3] - 5 area[2] + 5 self.height "browser_sidebar" (
         local y = frame.top + frame.scroll
+        local startY = y
         
         for i layouts.shared.state.tabs.len (
           local tab @= layouts.shared.state.tabs[i]
@@ -502,6 +502,7 @@ case "./src/layouts/summit/sidebar.osl"
           y -= 20
         )
       )
+      self.height = startY - y - 7.5
       
       // clicking on the left side of the window opens the sidebar
       if self.width < 25 (
@@ -770,6 +771,10 @@ case "./src/layouts/shared/urlbar.osl"
       
       url @= shared.url.Url(url)
       
+      if layouts.shared.state.tabs.len == 0 (
+        void layouts.shared.state.openEmptyTab()
+      )
+      
       local tab @= layouts.shared.state.tabs[layouts.shared.state.currentTab]
       void tab.redirect(url)
     )
@@ -884,7 +889,14 @@ case "./src/layouts/shared/state.osl"
     
     def updateTab() (
       self.currentDocument @= self.tabs[self.currentTab].document
-      inputs[layouts.shared.urlbar.inputId] = self.currentDocument.url.text
+      if self.currentDocument.url != null (
+        inputs[layouts.shared.urlbar.inputId] = self.currentDocument.url.format()
+      ) else (
+        inputs[layouts.shared.urlbar.inputId] = ""
+      )
+      if inputs.selected.id == layouts.shared.urlbar.inputId (
+       input "unfocus"
+      )
       //self.currentDocument ??= shared.document.Document()
     )
   )
@@ -1102,7 +1114,9 @@ case "./src/net/fetch.osl"
   class __imports__d974ce5692d372884f5c4f8f8bf1ab18 (
     def url(object url) (
       if url.scheme == "local" (
-        local f @= open(url.domain_name).toStr()
+        //local f @= open(url.domain_name).toStr()
+        // fpp import instead (goes into output)
+        local f @= import(url.domain_name).toStr()
         local r @= net.response.ValidResponse(url)
         r.fetch @= def() -> (
           self.content = self.f
@@ -1190,6 +1204,13 @@ case "./src/shared/settings.osl"
             devtools.main.anchor = value
           )
         }
+      },
+      net: {
+        offline: {
+          type: "boolean",
+          desc: "disables networking",
+          default: false
+        }
       }
     }
     
@@ -1203,6 +1224,7 @@ case "./src/shared/settings.osl"
       )
       self._data @= self.deserialize(shared.save.get("settings.json"))
       void self.applySettings()
+      void self.write()
     )
     
     def write() (
@@ -1330,25 +1352,27 @@ case "./src/shared/config.osl"
   class __imports__9f198a2aa8925b082e5f887a2bba9b67 (
     class net (
       servers = {
-        //rtr: {
-        //  url: "http://localhost:3000/",
-        //  
-        //  // <server>/<command>
-        //  commands: {
-        //    tlds: "tlds"
-        //  }
-        //}
+        rtr: {
+          url: "https://web.rotur.dev/",
+          
+          // <server>/<command>
+          commands: {
+            tlds: "tlds"
+          }
+        }
       }
       
       def refresh() (
+        if shared.settings.get("net", "offline") (
+          self.servers @= []
+        )
+        
         for i self.servers.len (
           local s @= self.servers.getValues()[i]
           s.tlds @= (s.url ++ s.commands.tlds).httpGet()
         )
       )
     )
-    
-    net.refresh()
     
     class url (
       class defaults (
@@ -1442,14 +1466,17 @@ case "./src/shared/url.osl"
       )
       
       def format() (
+        if self.scheme == "local" (
+          return self.text
+        )
         local sub = self.domain_sub != null ? self.domain_sub ++ "." ""
         local top = self.domain_top != null ? "." ++ self.domain_top ""
         local txt = self.scheme ++ "://" ++ sub ++ domain_name ++ top
         if self.path != null (
           txt ++= "/" ++ self.path
         )
-        if self.file_name != "index.rwl" (
-          txt ++= "/" ++ self.file_name
+        if self.resource != "index.rwl" (
+          txt ++= "/" ++ self.resource
         )
         return txt
       )
@@ -1472,6 +1499,7 @@ case "./src/shared/tab.osl"
       
       def redirect(object url) (
         void self.document.loadUrl(url)
+        void layouts.shared.state.updateTab()
       )
     )
   )
@@ -1483,8 +1511,7 @@ case "./src/shared/document.osl"
         void self.createInsts()
         
         self.started = false
-        
-        void self.createWorker()
+        self.shouldBeAlive = false
       )
       
       def close() (
@@ -1496,13 +1523,18 @@ case "./src/shared/document.osl"
         void self.killWorker()
         self.worker @= worker(shared.tab_worker)
         self.worker.document @= self
+        self.shouldBeAlive = true
       )
       
       def killWorker() (
         if self.worker != null (
           //log "kill worker"
+          if self.worker.kill == null (
+            return
+          )
           void self.worker.kill()
           self.worker = null
+          self.shouldBeAlive = false
         )
       )
       
@@ -1536,9 +1568,10 @@ case "./src/shared/document.osl"
       def render(array area) (
         if self.worker != null (
           self.worker.area @= area
-          if !self.worker.alive (
-            self.rwlInst.errored = true
-            self.rwlInst.errormsg = "tab worker died, check js console"
+          if !self.worker.alive and self.shouldBeAlive (
+            //void self.createWorker()
+            //self.rwlInst.errored = true
+            //self.rwlInst.errormsg = "tab worker died, check js console"
           )
         )
         
@@ -2241,6 +2274,45 @@ case "./src/rtr/ast.osl"
           return self.event()
         )
         
+        void self.consumeWhitespace()
+        
+        // global parsing
+        local ptr = self.pointer
+        
+        local start @= self.getPos()
+        local name = self.consume()
+        if name.match("/^[a-zA-Z_0-9]+$/") != null (
+          void self.consumeWhitespace()
+          if self.peek() == ":" (
+            void self.consume()
+            void self.expect("=")
+            local expr @= self.expression()
+            void self.expect(";")
+            return {
+              kind: "global",
+              name,
+              val: expr,
+              auto: true,
+              start, end: self.getPos()
+            }
+          )
+          if self.peek() == "=" (
+            void self.consume()
+            local expr @= self.expression()
+            void self.expect(";")
+            return {
+              kind: "global",
+              name,
+              val: expr,
+              start, end: self.getPos()
+            }
+          )
+        )
+        
+        self.pointer = ptr
+        
+        void self.consumeWhitespace()
+        
         throw "unexpected token '" ++ self.peek() ++ "'"
       )
       
@@ -2843,6 +2915,10 @@ case "./src/rtr/ast.osl"
           return self.obj()
         )
         
+        if self.peek() == "#" (
+          return self.color()
+        )
+        
         if ["'","\"","`"].contains(self.peek()) (
           return self.str()
         )
@@ -2861,6 +2937,33 @@ case "./src/rtr/ast.osl"
         )
         
         throw "unexpected token '" ++ self.peek() ++ "'"
+      )
+      
+      def arr() (
+        void self.expect("[")
+        
+        local elems @= []
+        
+        local end = self.peek() == "]"
+        while !end (
+          local expr @= self.expression()
+          void elems.append(expr)
+          
+          void self.consumeWhitespace()
+          if self.peek() == "]" or self.atEnd() (
+            end = true
+          ) else (
+            void self.expect(",")
+          )
+          void self.consumeWhitespace()
+        )
+        
+        void self.expect("]")
+        
+        return {
+          kind: "arr",
+          elems
+        }
       )
       
       def obj() (
@@ -2895,30 +2998,17 @@ case "./src/rtr/ast.osl"
         }
       )
       
-      def arr() (
-        void self.expect("[")
-        
-        local elems @= []
-        
-        local end = self.peek() == "]"
-        while !end (
-          local expr @= self.expression()
-          void elems.append(expr)
-          
-          void self.consumeWhitespace()
-          if self.peek() == "]" or self.atEnd() (
-            end = true
-          ) else (
-            void self.expect(",")
-          )
-          void self.consumeWhitespace()
+      def color() (
+        local start @= self.getPos()
+        void self.expect("#")
+        local value = self.consume()
+        if ![3,6].contains(value.len) (
+          throw "hex values can only be 3 or 6 characters long"
         )
-        
-        void self.expect("]")
-        
         return {
-          kind: "arr",
-          elems
+          kind: "color",
+          val: "#" ++ value,
+          start, end: self.getPos()
         }
       )
       
@@ -2993,7 +3083,9 @@ case "./src/rtr/main.osl"
         void self.loadFromAst(ast)
         void self.initScope()
         void self.defScope()
+        
         self.eventQueue @= []
+        self.initTopDone = false
       )
       def loadFromAst(object ast) (
         self.ast @= ast
@@ -3013,6 +3105,30 @@ case "./src/rtr/main.osl"
               topLevel.target,
               topLevel
             ])
+          )
+        )
+      )
+      def initTop() (
+        if self.initTopDone (
+          return
+        )
+        self.initTopDone = true
+        
+        self.ast @= ast
+        
+        void self.newScope({})
+        for i self.ast.elements.len (
+          local topLevel @= self.ast.elements[i]
+          log topLevel
+          if topLevel.kind == "global" (
+            local val @= self.runExpression(topLevel.val)
+            local meta = null
+            if topLevel.auto (
+              meta @= {
+                type: val.getRtrType()
+              }
+            )
+            void self.declScopeVar(topLevel.name, val, meta)
           )
         )
       )
@@ -3235,6 +3351,7 @@ case "./src/rtr/main.osl"
       def runEventsRaw(object target, object data) (
         local evs @= self.findEligible(target)
         
+        void self.initTop()
         for i evs.len (
           void self.runBlock(evs[i].body)
         )
@@ -3246,6 +3363,7 @@ case "./src/rtr/main.osl"
           return rtr.value.RTRNullValue()
         )
         
+        void self.initTop()
         return self.runBlock(ev.body)
       )
       def runBlock(object block) (
@@ -3425,6 +3543,8 @@ case "./src/rtr/main.osl"
               val[pair.name] @= self.runExpression(pair.value)
             )
             return rtr.value.RTRObjValue(val)
+          case "color"
+            return rtr.value.RTRColorValue(expression.val)
           
           default
             throw "unknown expression type" + expression.kind
@@ -5648,8 +5768,14 @@ case "./src/rtr/rwl.osl"
 case "./src/assets/empty.rwl"
   return "  root {\n    \"grahhh\"\n  }"
 
-case "./main.rwl"
+case "./sidebartest.rwl"
   return "  root {\n    frame [Horizontal, id=\"bleh\"] {\n      section [\n        id=\"sidebar\",\n        size=150, color=theme:prim,\n        rounding_tr=17.5, rounding_br=17.5,\n        padding=10\n      ] {},\n      section {\n      }\n    },\n    \n    script {\n      event(onload) {\n        i := 0;\n        createSidebarButton := (name) ~ {\n          i = i + 1;\n          elem := document.createContainer(\"button\");\n          elem.height = 35;\n          elem.padding = 10;\n          elem.color = theme.seco;\n          elem.hover_color = theme.tert;\n          elem.rounding = 10;\n          elem.id = \"btn\" + i;\n          if (i == 1) {\n            elem.anchor = \"t\";\n          }\n          elem.margin_b = 10;\n          document.getElement(\"sidebar\").addChild(elem);\n          \n          script := document.createScript(\"event(#\" + elem.id + \":click) {\\n  log(\\\"\" + name + \" clicked!\\\");\\n}\\n\");\n          document.root.addChild(script);\n          \n          text := document.createTextElement(name);\n          text.color = theme.text;\n          elem.addChild(text);\n        };\n        \n        btns := [\n          \"hi\",\n          \"wow\",\n          \"blehh\",\n          \"fr\"\n        ];\n        \n        for (btn, btns) {\n          createSidebarButton(btn);\n        }\n      }\n    }\n  }"
+
+case "./test.rwl"
+  return "  root [color=theme:prim] {\n    frame [Horizontal] {\n      section [size=100, rounding_tr=20, rounding_br=20] {\n        \"fr\" [color=theme:seco]\n      },\n      section {\n        frame [Vertical] {\n          section [size=50] {\n            \"maybe?\" [color=theme:text, anchor=\"l\", padding=10, size=15]\n          },\n          section [color=theme:back, rounding=20, margin_r=10, margin_b=10, padding=20] {\n            \"blehhh\" [color=theme:text],\n            \"fr\",\n            button [color=theme:prim,padding=5,rounding=5] {\n              \"hi\"\n            },\n            \":P\" [anchor=\"bl\",size=5]\n          }\n        }\n      }\n    },\n    script {\n      event(onload) {\n        log(\"blehh\");\n        \n        document.title = \"gay\";\n        document.icon = \"flag-progress\";\n      }\n    }\n  }"
+
+case "./main.rwl"
+  return "  root {\n    script {\n      test := \"hi\";\n      event(onload) {\n        log(test);\n      }\n    }\n  }"
 )
 )
 import as "glass" from "packages"
@@ -5728,28 +5854,30 @@ object devtools @= {
 }
 
 void shared.settings.load()
+void shared.config.net.refresh()
 
 void layouts.chromeLike.main.init()
 
+// debug tabs
 if true (
   local document @= shared.document.Document()
-  void document.loadUrl(shared.url.Url("local://~/projects/phosphorus/main.rwl"))
+  void document.loadUrl(shared.url.Url("local://./main.rwl"))
   void layouts.shared.state.openTabDocument(document)
   
   local document2 @= shared.document.Document()
-  void document2.loadUrl(shared.url.Url("local://~/projects/phosphorus/test.rwl"))
+  void document2.loadUrl(shared.url.Url("local://./test.rwl"))
   void layouts.shared.state.openTabDocument(document2)
+) else (
+  void layouts.shared.state.openEmptyTab()
 )
 
 void layouts.shared.state.selectTab(1)
 
 void window.resize(900,500)
 
-devtools.main.open = true
-
 mainloop:
-  void layouts.chromeLike.main.update()
-  //void layouts.summit.main.update()
+  //void layouts.chromeLike.main.update()
+  void layouts.summit.main.update()
   
   // file dropping
   if file_dropped != 0 (

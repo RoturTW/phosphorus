@@ -52,6 +52,13 @@ def selectTab(number index) (
 
 def updateTab() (
   self.currentDocument @= self.tabs[self.currentTab].document
-  inputs[layouts.shared.urlbar.inputId] = self.currentDocument.url.text
+  if self.currentDocument.url != null (
+    inputs[layouts.shared.urlbar.inputId] = self.currentDocument.url.format()
+  ) else (
+    inputs[layouts.shared.urlbar.inputId] = ""
+  )
+  if inputs.selected.id == layouts.shared.urlbar.inputId (
+   input "unfocus"
+  )
   //self.currentDocument ??= shared.document.Document()
 )

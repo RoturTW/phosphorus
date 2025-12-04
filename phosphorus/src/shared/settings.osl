@@ -9,6 +9,13 @@ object entries = {
         devtools.main.anchor = value
       )
     }
+  },
+  net: {
+    offline: {
+      type: "boolean",
+      desc: "disables networking",
+      default: false
+    }
   }
 }
 
@@ -22,6 +29,7 @@ def load() (
   )
   self._data @= self.deserialize(shared.save.get("settings.json"))
   void self.applySettings()
+  void self.write()
 )
 
 def write() (

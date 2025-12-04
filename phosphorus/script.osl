@@ -74,28 +74,30 @@ object devtools @= {
 }
 
 void shared.settings.load()
+void shared.config.net.refresh()
 
 void layouts.chromeLike.main.init()
 
+// debug tabs
 if true (
   local document @= shared.document.Document()
-  void document.loadUrl(shared.url.Url("local://~/projects/phosphorus/main.rwl"))
+  void document.loadUrl(shared.url.Url("local://./main.rwl"))
   void layouts.shared.state.openTabDocument(document)
   
   local document2 @= shared.document.Document()
-  void document2.loadUrl(shared.url.Url("local://~/projects/phosphorus/test.rwl"))
+  void document2.loadUrl(shared.url.Url("local://./test.rwl"))
   void layouts.shared.state.openTabDocument(document2)
+) else (
+  void layouts.shared.state.openEmptyTab()
 )
 
 void layouts.shared.state.selectTab(1)
 
 void window.resize(900,500)
 
-devtools.main.open = true
-
 mainloop:
-  void layouts.chromeLike.main.update()
-  //void layouts.summit.main.update()
+  //void layouts.chromeLike.main.update()
+  void layouts.summit.main.update()
   
   // file dropping
   if file_dropped != 0 (

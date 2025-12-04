@@ -1,25 +1,27 @@
 
 class net (
   servers = {
-    //rtr: {
-    //  url: "http://localhost:3000/",
-    //  
-    //  // <server>/<command>
-    //  commands: {
-    //    tlds: "tlds"
-    //  }
-    //}
+    rtr: {
+      url: "https://web.rotur.dev/",
+      
+      // <server>/<command>
+      commands: {
+        tlds: "tlds"
+      }
+    }
   }
   
   def refresh() (
+    if shared.settings.get("net", "offline") (
+      self.servers @= []
+    )
+    
     for i self.servers.len (
       local s @= self.servers.getValues()[i]
       s.tlds @= (s.url ++ s.commands.tlds).httpGet()
     )
   )
 )
-
-net.refresh()
 
 class url (
   class defaults (

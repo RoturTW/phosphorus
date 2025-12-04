@@ -1,1 +1,1 @@
-{"name": "phosphorus", "version": "1.0.0", "description": "rotur web engine", "main": "script.osl", "dependencies": {}, "tags": [], "include": ["./main.rwl", "./src/assets/empty.rwl"]}
+{"name": "phosphorus", "version": "1.0.0", "description": "rotur web engine", "main": "script.osl", "dependencies": {}, "tags": [], "include": ["./main.rwl", "./test.rwl", "./sidebartest.rwl", "./src/assets/empty.rwl", "./src/assets/settings.rwl"]}

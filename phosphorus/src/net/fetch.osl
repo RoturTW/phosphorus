@@ -1,7 +1,9 @@
 
 def url(object url) (
   if url.scheme == "local" (
-    local f @= open(url.domain_name).toStr()
+    //local f @= open(url.domain_name).toStr()
+    // fpp import instead (goes into output)
+    local f @= import(url.domain_name).toStr()
     local r @= net.response.ValidResponse(url)
     r.fetch @= def() -> (
       self.content = self.f

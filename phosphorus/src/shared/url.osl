@@ -51,14 +51,17 @@ class Url (
   )
   
   def format() (
+    if self.scheme == "local" (
+      return self.text
+    )
     local sub = self.domain_sub != null ? self.domain_sub ++ "." ""
     local top = self.domain_top != null ? "." ++ self.domain_top ""
     local txt = self.scheme ++ "://" ++ sub ++ domain_name ++ top
     if self.path != null (
       txt ++= "/" ++ self.path
     )
-    if self.file_name != "index.rwl" (
-      txt ++= "/" ++ self.file_name
+    if self.resource != "index.rwl" (
+      txt ++= "/" ++ self.resource
     )
     return txt
   )

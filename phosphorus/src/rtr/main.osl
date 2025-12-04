@@ -4,7 +4,9 @@ class Module (
     void self.loadFromAst(ast)
     void self.initScope()
     void self.defScope()
+    
     self.eventQueue @= []
+    self.initTopDone = false
   )
   def loadFromAst(object ast) (
     self.ast @= ast
@@ -24,6 +26,30 @@ class Module (
           topLevel.target,
           topLevel
         ])
+      )
+    )
+  )
+  def initTop() (
+    if self.initTopDone (
+      return
+    )
+    self.initTopDone = true
+    
+    self.ast @= ast
+    
+    void self.newScope({})
+    for i self.ast.elements.len (
+      local topLevel @= self.ast.elements[i]
+      log topLevel
+      if topLevel.kind == "global" (
+        local val @= self.runExpression(topLevel.val)
+        local meta = null
+        if topLevel.auto (
+          meta @= {
+            type: val.getRtrType()
+          }
+        )
+        void self.declScopeVar(topLevel.name, val, meta)
       )
     )
   )
@@ -246,6 +272,7 @@ class Module (
   def runEventsRaw(object target, object data) (
     local evs @= self.findEligible(target)
     
+    void self.initTop()
     for i evs.len (
       void self.runBlock(evs[i].body)
     )
@@ -257,6 +284,7 @@ class Module (
       return rtr.value.RTRNullValue()
     )
     
+    void self.initTop()
     return self.runBlock(ev.body)
   )
   def runBlock(object block) (
@@ -436,6 +464,8 @@ class Module (
           val[pair.name] @= self.runExpression(pair.value)
         )
         return rtr.value.RTRObjValue(val)
+      case "color"
+        return rtr.value.RTRColorValue(expression.val)
       
       default
         throw "unknown expression type" + expression.kind

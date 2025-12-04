@@ -40,10 +40,10 @@ def update(array area) (
     area[4] - 40 - 2.5
   ])
   
-  local height = 1000
   c shared.theme.prim
-  frame area[1] + 5 area[4] - 40 - 35 area[3] - 5 area[2] + 5 height "browser_sidebar" (
+  frame area[1] + 5 area[4] - 40 - 35 area[3] - 5 area[2] + 5 self.height "browser_sidebar" (
     local y = frame.top + frame.scroll
+    local startY = y
     
     for i layouts.shared.state.tabs.len (
       local tab @= layouts.shared.state.tabs[i]
@@ -90,6 +90,7 @@ def update(array area) (
       y -= 20
     )
   )
+  self.height = startY - y - 7.5
   
   // clicking on the left side of the window opens the sidebar
   if self.width < 25 (
