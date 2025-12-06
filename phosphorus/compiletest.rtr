@@ -1,0 +1,6 @@
+
+event(onload) {
+  test := "goob";
+  test = "bleh";
+  log(test);
+}

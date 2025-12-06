@@ -10,8 +10,15 @@ def unzipFile(array data, string path) (
   ) else (
     file "goto_dir" path
     if open(path ++ "/" ++ data[2] ++ data[1]) != data[3] (
-      file "set_file" data[2] ++ data[1] data[3]
-      log "wrote" path ++ "/" ++ data[2] ++ data[1]
+      //file "set_file" data[2] ++ data[1] data[3]
+      file "open" data[2] ++ data[1] data[3]
+      //file "set" 11 data[4]
+      file "close"
+      if data[4] != "" (
+        log "wrote" path ++ "/" ++ data[2] ++ data[1] "with icon:\n  " ++ data[4]
+      ) else (
+        log "wrote" path ++ "/" ++ data[2] ++ data[1]
+      )
     )
   )
 )

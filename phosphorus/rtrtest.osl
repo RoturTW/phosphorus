@@ -1,0 +1,35 @@
+
+// import overwrite
+__import @= import;import @= i -> (i.endsWith(".osl") ? __import(i) open(i))
+
+object rtr @= {
+  main: import("./src/rtr/main.osl"),
+  ast: import("./src/rtr/ast.osl"),
+  error: import("./src/rtr/error.osl"),
+  value: import("./src/rtr/value.osl"),
+  compiler: import("./src/rtr/compiler.osl"),
+  instruction: import("./src/rtr/instruction.osl")
+}
+
+local ast @= rtr.ast.Parser(import("./compiletest.rtr"))
+
+local out @= rtr.compiler.compileBlock(ast.parse().elements[1].body)
+if typeof(out) != "array" and out.isError (
+  log out.stringify()
+) else (
+  //log "instructions" out
+  
+  local inst @= rtr.main.RTR()
+  local mod @= rtr.main.Module({ elements: [] })
+  void inst.addModule(mod)
+  
+  local out @= mod.runInstructions(out) ?? rtr.value.RTRNullValue()
+  if typeof(out) != "array" and out.isError (
+    log out.stringify()
+  ) else (
+    if out.stringify() != "<null>" (
+      log "out" out.stringify()
+    )
+    log "stack" mod.stack
+  )
+)

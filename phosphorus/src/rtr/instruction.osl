@@ -1,0 +1,32 @@
+
+// operations
+def callOp(number amount) (
+  return { kind: "call", args: amount }
+)
+
+// values
+def null() (
+  return { kind: "null" }
+)
+def str(string data) (
+  return { kind: "str", data }
+)
+def num(number data) (
+  return { kind: "num", data }
+)
+
+// scope
+def get(string name) (
+  return { kind: "get", name }
+)
+def set(string name) (
+  return { kind: "set", name }
+)
+def decl(string name) (
+  return { kind: "decl", name }
+)
+
+// stack
+def pop() (
+  return { kind: "pop" }
+)

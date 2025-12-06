@@ -3,9 +3,9 @@
 permission "request" "file admin"
 
 def zipFile(string path) (
-  local f @= open(path,[1,2,4])
+  local f @= open(path,[1,2,4,11])
   if f[1] == ".folder" (
-    return [".folder", f[2], f[3].JsonParse().map(zipFile)]
+    return [".folder", f[2], f[3].JsonParse().map(zipFile),f[4]]
   ) else (
     return f
   )

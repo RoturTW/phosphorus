@@ -7,6 +7,9 @@ class Module (
     
     self.eventQueue @= []
     self.initTopDone = false
+    
+    // only used in bytecode
+    self.returnVal = null
   )
   def loadFromAst(object ast) (
     self.ast @= ast
@@ -40,7 +43,6 @@ class Module (
     void self.newScope({})
     for i self.ast.elements.len (
       local topLevel @= self.ast.elements[i]
-      log topLevel
       if topLevel.kind == "global" (
         local val @= self.runExpression(topLevel.val)
         local meta = null
@@ -88,6 +90,7 @@ class Module (
       local val @= args[1]
       val ??= rtr.value.RTRNullValue()
       void inst.setScopeVar("@return", val)
+      inst.returnVal @= val
     ))
     cFunc("typeof", def(args) -> (
       local val @= args[1] ?? rtr.value.RTRNullValue()
@@ -436,6 +439,7 @@ class Module (
         local left @= self.runExpression(expression.left)
         local right @= self.runExpression(expression.right)
         return self.runOperation(left, expression.op, right)
+      
       case "var"
         local val @= self.getScopeVar(expression.name)
         return val ?? rtr.value.RTRNullValue()
@@ -524,6 +528,61 @@ class Module (
     )
     
     return rtr.value.RTRNullValue()
+  )
+  
+  def runInstructions(array instructions) (
+    self.stack @= []
+    
+    for i instructions.len (
+      local instruction @= instructions[i]
+      switch instruction.kind (
+        case "call"
+          local args @= []
+          loop instruction.args (
+            void args.prepend(self.stack.pop())
+          )
+          local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
+          void self.stack.append(out)
+          if self.returnVal != null (
+            local out @= self.returnVal
+            self.returnVal = null
+            return out
+          )
+          break
+        
+        case "null"
+          void self.stack.append(rtr.value.RTRNullValue())
+          break
+        case "str"
+          void self.stack.append(rtr.value.RTRStrValue(instruction.data))
+          break
+        case "num"
+          void self.stack.append(rtr.value.RTRNumValue(instruction.data))
+          break
+        
+        case "get"
+          local val @= self.getScopeVar(instruction.name) ?? rtr.value.RTRNullValue()
+          void self.stack.append(val)
+          break
+        case "decl"
+          local val @= self.stack.pop()
+          void self.declScopeVar(instruction.name, val, {
+            type: val.getRtrType()
+          })
+          break
+        
+        case "pop"
+          void self.stack.pop()
+          break
+        
+        default
+          return rtr.error.Error("UnknownInstructionKind", { kind: instruction.kind })
+      )
+      
+    )
+    
+    return self.stack.pop()
   )
 )
 

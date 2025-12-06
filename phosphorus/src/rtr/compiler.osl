@@ -1,0 +1,97 @@
+
+def compileBlock(object block) (
+  local instructions @= []
+  for i block.elements.len (
+    local out @= compileStatement(block.elements[i])
+    if typeof(out) != "array" and out.isError (
+      return out
+    )
+    
+    instructions ++= out
+  )
+  return instructions
+)
+
+def compileStatement(object statement) (
+  switch statement.kind (
+    case "expression"
+      local out @= compileExpression(statement.expr)
+      if typeof(out) != "array" and out.isError (
+        return out
+      )
+      
+      out += rtr.instruction.pop()
+      return out
+    
+    default
+      return rtr.error.Error("UnknownStatementKind", { kind: statement.kind })
+  )
+  
+  return []
+)
+
+def compileExpression(object expression) (
+  switch expression.kind (
+    case "call"
+      local func @= compileExpression(expression.func)
+      if typeof(func) != "array" and func.isError (
+        return func
+      )
+      
+      local args @= []
+      for i expression.args.len (
+        local out @= compileExpression(expression.args[i])
+        if typeof(out) != "array" and out.isError (
+          return out
+        )
+        
+        args ++= out
+      )
+      local out @= []
+      out ++= func
+      out ++= args
+      out += rtr.instruction.callOp(expression.args.len)
+      return out
+    case "decl"
+      local val @= compileExpression(expression.val)
+      if typeof(val) != "array" and val.isError (
+        return val
+      )
+      
+      local out @= val
+      out += rtr.instruction.decl(expression.tar)
+      return out
+    case "asi"
+      local val @= compileExpression(expression.val)
+      if typeof(val) != "array" and val.isError (
+        return val
+      )
+      
+      switch expression.tar.kind (
+        case "var"
+      )
+      
+      break
+    // unary
+    // binary
+    
+    case "var"
+      return [rtr.instruction.get(expression.name)]
+    // prop
+    
+    case "str"
+      return [rtr.instruction.str(expression.val)]
+    case "num"
+      return [rtr.instruction.num(expression.val)]
+    // func
+    // arr
+    // obj
+    // color
+    
+    default
+      log expression
+      return rtr.error.Error("UnknownExpressionKind", { kind: expression.kind })
+  )
+  
+  return [rtr.instruction.null()]
+)

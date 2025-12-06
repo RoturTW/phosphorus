@@ -17,7 +17,9 @@ object rtr @= {
   main: import("./src/rtr/main.osl"),
   ast: import("./src/rtr/ast.osl"),
   error: import("./src/rtr/error.osl"),
-  value: import("./src/rtr/value.osl")
+  value: import("./src/rtr/value.osl"),
+  compiler: import("./src/rtr/compiler.osl"),
+  instruction: import("./src/rtr/instruction.osl")
 }
 
 rtr.rwl @= import("./src/rtr/rwl.osl")

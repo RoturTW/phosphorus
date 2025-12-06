@@ -1,6 +1,21 @@
 
-object Editors = {
+object Errors = {
+  CannotAssign: def(data) -> (
+    return "cannot assign to" + data.kind
+  ),
 
+  // instructions
+  UnknownInstructionKind: def(data) -> (
+    return "unknown instruction kind:" + data.kind
+  ),
+  
+  // compiler
+  UnknownStatementKind: def(data) -> (
+    return "unknown statement kind:" + data.kind
+  ),
+  UnknownExpressionKind: def(data) -> (
+    return "unknown expression kind:" + data.kind
+  )
 }
 
 class Error (
@@ -10,8 +25,9 @@ class Error (
     self.type = type
     self.data @= data
     
-    local err @= rwl.error.Errors[type]
+    local err @= rtr.error.Errors[type]
     if err == null (
+      self.type = "UnknownErrorType"
       self.txt = "unknown error type" + type
       return
     )

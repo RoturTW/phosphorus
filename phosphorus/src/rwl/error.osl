@@ -71,6 +71,7 @@ class Error (
     
     local err @= rwl.error.Errors[type]
     if err == null (
+      self.type = "UnknownErrorType"
       self.txt = "unknown error type" + type
       return
     )

@@ -1782,6 +1782,141 @@ case "./src/shared/graphics.osl"
     )
   )
   return __imports__8840a5e065c53e817186a2216f863bca
+case "./src/rtr/instruction.osl"
+  class __imports__63f619ecaeba64e54adfad70c460fe06 (
+    // operations
+    def callOp(number amount) (
+      return { kind: "call", args: amount }
+    )
+    
+    // values
+    def null() (
+      return { kind: "null" }
+    )
+    def str(string data) (
+      return { kind: "str", data }
+    )
+    def num(number data) (
+      return { kind: "num", data }
+    )
+    
+    // scope
+    def get(string name) (
+      return { kind: "get", name }
+    )
+    def set(string name) (
+      return { kind: "set", name }
+    )
+    def decl(string name) (
+      return { kind: "decl", name }
+    )
+    
+    // stack
+    def pop() (
+      return { kind: "pop" }
+    )
+  )
+  return __imports__63f619ecaeba64e54adfad70c460fe06
+case "./src/rtr/compiler.osl"
+  class __imports__bf40e68b061a1d99656fd4525ccf9d7b (
+    def compileBlock(object block) (
+      local instructions @= []
+      for i block.elements.len (
+        local out @= compileStatement(block.elements[i])
+        if typeof(out) != "array" and out.isError (
+          return out
+        )
+        
+        instructions ++= out
+      )
+      return instructions
+    )
+    
+    def compileStatement(object statement) (
+      switch statement.kind (
+        case "expression"
+          local out @= compileExpression(statement.expr)
+          if typeof(out) != "array" and out.isError (
+            return out
+          )
+          
+          out += rtr.instruction.pop()
+          return out
+        
+        default
+          return rtr.error.Error("UnknownStatementKind", { kind: statement.kind })
+      )
+      
+      return []
+    )
+    
+    def compileExpression(object expression) (
+      switch expression.kind (
+        case "call"
+          local func @= compileExpression(expression.func)
+          if typeof(func) != "array" and func.isError (
+            return func
+          )
+          
+          local args @= []
+          for i expression.args.len (
+            local out @= compileExpression(expression.args[i])
+            if typeof(out) != "array" and out.isError (
+              return out
+            )
+            
+            args ++= out
+          )
+          local out @= []
+          out ++= func
+          out ++= args
+          out += rtr.instruction.callOp(expression.args.len)
+          return out
+        case "decl"
+          local val @= compileExpression(expression.val)
+          if typeof(val) != "array" and val.isError (
+            return val
+          )
+          
+          local out @= val
+          out += rtr.instruction.decl(expression.tar)
+          return out
+        case "asi"
+          local val @= compileExpression(expression.val)
+          if typeof(val) != "array" and val.isError (
+            return val
+          )
+          
+          switch expression.tar.kind (
+            case "var"
+          )
+          
+          break
+        // unary
+        // binary
+        
+        case "var"
+          return [rtr.instruction.get(expression.name)]
+        // prop
+        
+        case "str"
+          return [rtr.instruction.str(expression.val)]
+        case "num"
+          return [rtr.instruction.num(expression.val)]
+        // func
+        // arr
+        // obj
+        // color
+        
+        default
+          log expression
+          return rtr.error.Error("UnknownExpressionKind", { kind: expression.kind })
+      )
+      
+      return [rtr.instruction.null()]
+    )
+  )
+  return __imports__bf40e68b061a1d99656fd4525ccf9d7b
 case "./src/rtr/value.osl"
   class __imports__b2506e9c8a1f71d53780de64c11f25a1 (
     class RTRValue (
@@ -2117,8 +2252,23 @@ case "./src/rtr/value.osl"
   return __imports__b2506e9c8a1f71d53780de64c11f25a1
 case "./src/rtr/error.osl"
   class __imports__a51b04c580d521af176787ba84843c9a (
-    object Editors = {
+    object Errors = {
+      CannotAssign: def(data) -> (
+        return "cannot assign to" + data.kind
+      ),
     
+      // instructions
+      UnknownInstructionKind: def(data) -> (
+        return "unknown instruction kind:" + data.kind
+      ),
+      
+      // compiler
+      UnknownStatementKind: def(data) -> (
+        return "unknown statement kind:" + data.kind
+      ),
+      UnknownExpressionKind: def(data) -> (
+        return "unknown expression kind:" + data.kind
+      )
     }
     
     class Error (
@@ -2128,8 +2278,9 @@ case "./src/rtr/error.osl"
         self.type = type
         self.data @= data
         
-        local err @= rwl.error.Errors[type]
+        local err @= rtr.error.Errors[type]
         if err == null (
+          self.type = "UnknownErrorType"
           self.txt = "unknown error type" + type
           return
         )
@@ -3086,6 +3237,9 @@ case "./src/rtr/main.osl"
         
         self.eventQueue @= []
         self.initTopDone = false
+        
+        // only used in bytecode
+        self.returnVal = null
       )
       def loadFromAst(object ast) (
         self.ast @= ast
@@ -3119,7 +3273,6 @@ case "./src/rtr/main.osl"
         void self.newScope({})
         for i self.ast.elements.len (
           local topLevel @= self.ast.elements[i]
-          log topLevel
           if topLevel.kind == "global" (
             local val @= self.runExpression(topLevel.val)
             local meta = null
@@ -3167,6 +3320,7 @@ case "./src/rtr/main.osl"
           local val @= args[1]
           val ??= rtr.value.RTRNullValue()
           void inst.setScopeVar("@return", val)
+          inst.returnVal @= val
         ))
         cFunc("typeof", def(args) -> (
           local val @= args[1] ?? rtr.value.RTRNullValue()
@@ -3515,6 +3669,7 @@ case "./src/rtr/main.osl"
             local left @= self.runExpression(expression.left)
             local right @= self.runExpression(expression.right)
             return self.runOperation(left, expression.op, right)
+          
           case "var"
             local val @= self.getScopeVar(expression.name)
             return val ?? rtr.value.RTRNullValue()
@@ -3603,6 +3758,61 @@ case "./src/rtr/main.osl"
         )
         
         return rtr.value.RTRNullValue()
+      )
+      
+      def runInstructions(array instructions) (
+        self.stack @= []
+        
+        for i instructions.len (
+          local instruction @= instructions[i]
+          switch instruction.kind (
+            case "call"
+              local args @= []
+              loop instruction.args (
+                void args.prepend(self.stack.pop())
+              )
+              local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
+              void self.stack.append(out)
+              if self.returnVal != null (
+                local out @= self.returnVal
+                self.returnVal = null
+                return out
+              )
+              break
+            
+            case "null"
+              void self.stack.append(rtr.value.RTRNullValue())
+              break
+            case "str"
+              void self.stack.append(rtr.value.RTRStrValue(instruction.data))
+              break
+            case "num"
+              void self.stack.append(rtr.value.RTRNumValue(instruction.data))
+              break
+            
+            case "get"
+              local val @= self.getScopeVar(instruction.name) ?? rtr.value.RTRNullValue()
+              void self.stack.append(val)
+              break
+            case "decl"
+              local val @= self.stack.pop()
+              void self.declScopeVar(instruction.name, val, {
+                type: val.getRtrType()
+              })
+              break
+            
+            case "pop"
+              void self.stack.pop()
+              break
+            
+            default
+              return rtr.error.Error("UnknownInstructionKind", { kind: instruction.kind })
+          )
+          
+        )
+        
+        return self.stack.pop()
       )
     )
     
@@ -4249,6 +4459,7 @@ case "./src/rwl/error.osl"
         
         local err @= rwl.error.Errors[type]
         if err == null (
+          self.type = "UnknownErrorType"
           self.txt = "unknown error type" + type
           return
         )
@@ -5765,6 +5976,9 @@ case "./src/rtr/rwl.osl"
     )
   )
   return __imports__9a058537c83ea298ad90e68798b3ddc4
+case "./src/assets/settings.rwl"
+  return "  root {\n    frame [Horizontal] {\n      section [id=\"sidebar\", size=200] {\n        \n      }\n    },\n    \n    script {\n      pages := {\n        general: [\n          \"hi\"\n        ],\n        privacy: [\n        \n        ]\n      };\n      \n      for (i, pages.keys()) {\n        \n      }\n    }\n  }"
+
 case "./src/assets/empty.rwl"
   return "  root {\n    \"grahhh\"\n  }"
 
@@ -5797,7 +6011,9 @@ object rtr @= {
   main: import("./src/rtr/main.osl"),
   ast: import("./src/rtr/ast.osl"),
   error: import("./src/rtr/error.osl"),
-  value: import("./src/rtr/value.osl")
+  value: import("./src/rtr/value.osl"),
+  compiler: import("./src/rtr/compiler.osl"),
+  instruction: import("./src/rtr/instruction.osl")
 }
 
 rtr.rwl @= import("./src/rtr/rwl.osl")
