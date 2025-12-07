@@ -291,6 +291,25 @@ class Module (
     return self.runBlock(ev.body)
   )
   def runBlock(object block) (
+    if shared.config.browser.phosphorus.useCompiler and block.compile == null (
+      local compileOut @= rtr.compiler.compileBlock(block)
+      if typeof(compileOut) != "array" and compileOut.isError (
+        block.compile = false
+      ) else (
+        block.compile @= compileOut
+      )
+      self.inst.compiled ??= []
+      void self.inst.compiled.append({
+        body: compileOut,
+        start: block.start,
+        end: block.end,
+        ast: block
+      })
+    )
+    if block.compile != null (
+      return self.runInstructions(block.compile)
+    )
+    
     local elements @= block.elements
     local outVal @= rtr.value.RTRNullValue()
     void self.newScope({})
@@ -392,7 +411,7 @@ class Module (
         )
         
         if expression.op != null (
-          val @= self.runOperation(existing, expression.op, val)
+          val @= self.runBinary(existing, expression.op, val)
         )
         
         switch expression.tar.kind (
@@ -415,7 +434,7 @@ class Module (
             ) else (
               key @= self.runExpression(key)
             )
-            obj.setItem(key, val)
+            void obj.setItem(key, val)
             break
           default
             throw "cannot assign to" + expression.tar.kind
@@ -424,21 +443,11 @@ class Module (
         return val
       case "unary"
         local val @= self.runExpression(expression.expr)
-        switch expression.type (
-          case "-"
-            return rtr.value.RTRNumValue(-val.numbify())
-          case "+"
-            return rtr.value.RTRNumValue(val.numbify())
-          case "!"
-            return rtr.value.RTRBoolValue(!val.boolify())
-          case "?"
-            return rtr.value.RTRBoolValue(val.boolify())
-        )
-        return rtr.value.RTRNullValue()
+        return self.runUnary(expression.type, val)
       case "binary"
         local left @= self.runExpression(expression.left)
         local right @= self.runExpression(expression.right)
-        return self.runOperation(left, expression.op, right)
+        return self.runBinary(left, expression.op, right)
       
       case "var"
         local val @= self.getScopeVar(expression.name)
@@ -475,7 +484,20 @@ class Module (
         throw "unknown expression type" + expression.kind
     )
   )
-  def runOperation(object left, op, object right) (
+  def runUnary(string op, object val) (
+    switch op (
+      case "-"
+        return rtr.value.RTRNumValue(-val.numbify())
+      case "+"
+        return rtr.value.RTRNumValue(val.numbify())
+      case "!"
+        return rtr.value.RTRBoolValue(!val.boolify())
+      case "?"
+        return rtr.value.RTRBoolValue(val.boolify())
+    )
+    return rtr.value.RTRNullValue()
+  )
+  def runBinary(object left, string op, object right) (
     local numT @= rtr.value.RTRNumValue.getRtrType()
     switch op (
       case "+"
@@ -531,26 +553,74 @@ class Module (
   )
   
   def runInstructions(array instructions) (
-    self.stack @= []
+    self.stack ??= []
+    
+    local labels @= {}
     
     for i instructions.len (
       local instruction @= instructions[i]
+      if instruction.kind == "label" (
+        labels[instruction.name] = i
+      )
+    )
+    
+    local i = 0
+    local iters = 0
+    while i < instructions.len and iters < 1000 (
+      i ++
+      iters ++
+      local instruction @= instructions[i]
+      //log i iters instruction self.stack.map(s -> s.stringify())
       switch instruction.kind (
-        case "call"
-          local args @= []
-          loop instruction.args (
-            void args.prepend(self.stack.pop())
+        case "label"; break
+        case "jump"
+          i = labels[instruction.label] ?? i
+          break
+        case "jumpIf"
+          local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          if val.boolify() (
+            i = labels[instruction.label] ?? i
           )
-          local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
-          local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
-          void self.stack.append(out)
-          if self.returnVal != null (
-            local out @= self.returnVal
-            self.returnVal = null
-            return out
+          break
+        case "jumpNotIf"
+          local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          if !val.boolify() (
+            i = labels[instruction.label] ?? i
           )
           break
         
+        case "call"
+          local args @= []
+          loop instruction.args (
+            void args.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+          )
+          local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
+          if self.returnVal != null (
+            local out @= self.returnVal
+            self.returnVal = null
+          )
+          void self.stack.append(out)
+          break
+        case "unary"
+          local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          void self.stack.append(self.runUnary(instruction.op, val))
+          break
+        case "binary"
+          local right @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          local left @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          void self.stack.append(self.runBinary(left, instruction.op, right))
+          break
+        case "prop"
+          local key @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          void self.stack.append(obj.getItem(key))
+          break
+        case "len"
+          local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          void self.stack.append(rtr.value.RTRNumValue(obj.length()))
+          break
+          
         case "null"
           void self.stack.append(rtr.value.RTRNullValue())
           break
@@ -560,20 +630,86 @@ class Module (
         case "num"
           void self.stack.append(rtr.value.RTRNumValue(instruction.data))
           break
+        case "func"
+          void self.stack.append(rtr.value.RTRBytecodeFuncValue(instruction.args, instruction.body))
+          break
+        case "arr"
+          local elems @= []
+          loop instruction.elems (
+            void elems.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+          )
+          void self.stack.append(rtr.value.RTRArrValue(elems))
+          break
+        case "obj"
+          local values @= []
+          loop instruction.keys.len (
+            void values.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+          )
+          
+          local obj @= {}
+          for obji values.len (
+            obj[instruction.keys[obji]] @= values[obji]
+          )
+          void self.stack.append(rtr.value.RTRObjValue(obj))
+          break
+        case "color"
+          void self.stack.append(rtr.value.RTRColorValue(instruction.data))
+          break
         
         case "get"
           local val @= self.getScopeVar(instruction.name) ?? rtr.value.RTRNullValue()
           void self.stack.append(val)
           break
         case "decl"
-          local val @= self.stack.pop()
+          local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
           void self.declScopeVar(instruction.name, val, {
             type: val.getRtrType()
           })
           break
+        case "newScope"
+          void self.newScope({})
+          break
+        case "popScope"
+          void self.popScope()
+          break
+        
+        case "asivar"
+          local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
+          
+          local existingMeta @= self.getScopeVarMeta(instruction.name)
+          local existing @= self.getScopeVar(instruction.name)
+          
+          if instruction.op != null (
+            val @= self.runBinary(existing, instruction.op, val)
+          )
+          
+          local curType @= val.getRtrType()
+          if existingMeta.type != null (
+            if !existingMeta.type.isEqual(curType) (
+              // replace with return err
+              throw "cannot assign" + curType.stringify() + "to" + existingMeta.type.stringify() + "variable" 
+            )
+          )
+          
+          void self.setScopeVar(instruction.name, val)
+          break
+        case "asiprop"
+          local key @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+          
+          local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
+          if instruction.op != null (
+            val @= self.runBinary(obj.getItem(key), instruction.op, val)
+          )
+          
+          void obj.setItem(key, val)
+          break
         
         case "pop"
           void self.stack.pop()
+          break
+        case "dupe"
+          void self.stack.append(self.stack[instruction.i])
           break
         
         default
@@ -582,7 +718,7 @@ class Module (
       
     )
     
-    return self.stack.pop()
+    return rtr.value.RTRNullValue()
   )
 )
 

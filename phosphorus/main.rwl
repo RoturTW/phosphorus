@@ -1,9 +1,9 @@
 
 root {
   script {
-    test := "hi";
     event(onload) {
-      log(test);
+      goob := #fff;
+      log(goob);
     }
   }
 }

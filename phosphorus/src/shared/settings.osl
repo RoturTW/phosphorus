@@ -8,6 +8,22 @@ object entries = {
       applySetting: def(string value) -> (
         devtools.main.anchor = value
       )
+    },
+    open: {
+      type: "boolean",
+      desc: "if devtools is open or not",
+      default: false,
+      applySetting: def(boolean value) -> (
+        devtools.main.open = value
+      )
+    },
+    menu: {
+      type: "string",
+      desc: "current open devtools menu",
+      default: "console",
+      applySetting: def(string value) -> (
+        devtools.main.menu = value
+      )
     }
   },
   net: {

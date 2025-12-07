@@ -1,6 +1,14 @@
 
+lbli = 0
+
+def getLabelName() (
+  self.lbli ++
+  return self.lbli.toStr()
+)
+
 def compileBlock(object block) (
   local instructions @= []
+  //log "blk" block
   for i block.elements.len (
     local out @= compileStatement(block.elements[i])
     if typeof(out) != "array" and out.isError (
@@ -13,6 +21,7 @@ def compileBlock(object block) (
 )
 
 def compileStatement(object statement) (
+  //log "stat" statement
   switch statement.kind (
     case "expression"
       local out @= compileExpression(statement.expr)
@@ -20,6 +29,170 @@ def compileStatement(object statement) (
         return out
       )
       
+      out += rtr.instruction.pop()
+      return out
+    case "block"
+      local out @= compileBlock(statement.body)
+      if typeof(out) != "array" and out.isError (
+        return out
+      )
+      
+      return out
+    
+    case "branch"
+      local out @= []
+      local hasElse = statement.elifs.len > 0 or statement.elseBody != null
+      
+      local endLbl = getLabelName()
+      local elseLbl = hasElse ? getLabelName() endLbl
+      
+      local cond @= compileExpression(statement.cond)
+      if typeof(cond) != "array" and cond.isError (
+        return cond
+      )
+      out ++= cond
+      out += rtr.instruction.jumpNotIf(elseLbl)
+      local body @= compileStatement(statement.body)
+      if typeof(body) != "array" and body.isError (
+        return body
+      )
+      out ++= body
+      out += rtr.instruction.jump(endLbl)
+      
+      for i statement.elifs.len (
+        local elif @= statement.elifs[i]
+        local isLast = i == statement.elifs.len and statement.elseBody == null
+        out += rtr.instruction.label(elseLbl)
+        elseLbl = isLast ? endLbl getLabelName()
+        
+        local cond @= compileExpression(elif.cond)
+        if typeof(cond) != "array" and cond.isError (
+          return cond
+        )
+        out ++= cond
+        out += rtr.instruction.jumpNotIf(elseLbl)
+        local body @= compileStatement(elif.body)
+        if typeof(body) != "array" and body.isError (
+          return body
+        )
+        out ++= body
+        out += rtr.instruction.jump(endLbl)
+      )
+      
+      if statement.elseBody != null (
+        out += rtr.instruction.label(elseLbl)
+        local body @= compileStatement(statement.elseBody)
+        if typeof(body) != "array" and body.isError (
+          return body
+        )
+        out ++= body
+      )
+      out += rtr.instruction.label(endLbl)
+      return out
+    
+    case "while"
+      local out @= []
+      
+      local startLbl @= getLabelName()
+      local endLbl @= getLabelName()
+      
+      out += rtr.instruction.label(startLbl)
+      local cond @= compileExpression(statement.cond)
+      if typeof(cond) != "array" and cond.isError (
+        return cond
+      )
+      out ++= cond
+      out += rtr.instruction.jumpNotIf(endLbl)
+      
+      local body @= compileStatement(statement.body)
+      if typeof(body) != "array" and body.isError (
+        return body
+      )
+      out ++= body
+      
+      out += rtr.instruction.jump(startLbl)
+      out += rtr.instruction.label(endLbl)
+      return out
+    case "until"
+      local out @= []
+      
+      local startLbl @= getLabelName()
+      local endLbl @= getLabelName()
+      
+      out += rtr.instruction.label(startLbl)
+      local cond @= compileExpression(statement.cond)
+      if typeof(cond) != "array" and cond.isError (
+        return cond
+      )
+      out ++= cond
+      out += rtr.instruction.jumpIf(endLbl)
+      
+      local body @= compileStatement(statement.body)
+      if typeof(body) != "array" and body.isError (
+        return body
+      )
+      out ++= body
+      
+      out += rtr.instruction.jump(startLbl)
+      out += rtr.instruction.label(endLbl)
+      return out
+    case "repeat"
+      local out @= []
+      
+      local startLbl @= getLabelName()
+      local endLbl @= getLabelName()
+      
+      out += rtr.instruction.num(1)
+      out += rtr.instruction.label(startLbl)
+      out += rtr.instruction.dupe(-1)
+      local amt @= compileExpression(statement.amount)
+      if typeof(amt) != "array" and amt.isError (
+        return amt
+      )
+      out ++= amt
+      out += rtr.instruction.binary(">")
+      out += rtr.instruction.jumpIf(endLbl)
+      
+      out ++= compileStatement(statement.body)
+      
+      out += rtr.instruction.num(1)
+      out += rtr.instruction.binary("+")
+      out += rtr.instruction.jump(startLbl)
+      out += rtr.instruction.label(endLbl)
+      out += rtr.instruction.pop()
+      return out
+    case "for"
+      local out @= []
+      
+      local startLbl @= getLabelName()
+      local endLbl @= getLabelName()
+      local arr @= compileExpression(statement.arr)
+      if typeof(arr) != "array" and arr.isError (
+        return arr
+      )
+      out ++= arr
+      out += rtr.instruction.num(0)
+      out += rtr.instruction.label(startLbl)
+      out += rtr.instruction.dupe(-2)
+      out += rtr.instruction.len()
+      out += rtr.instruction.dupe(-2)
+      out += rtr.instruction.binary("<=")
+      out += rtr.instruction.jumpIf(endLbl)
+      out += rtr.instruction.dupe(-2)
+      out += rtr.instruction.dupe(-2)
+      out += rtr.instruction.prop()
+      out += rtr.instruction.newScope()
+      out += rtr.instruction.decl(statement.var)
+      out += rtr.instruction.pop()
+      
+      out ++= compileStatement(statement.body)
+      
+      out += rtr.instruction.popScope()
+      out += rtr.instruction.num(1)
+      out += rtr.instruction.binary("+")
+      out += rtr.instruction.jump(startLbl)
+      out += rtr.instruction.label(endLbl)
+      out += rtr.instruction.pop()
       out += rtr.instruction.pop()
       return out
     
@@ -31,6 +204,7 @@ def compileStatement(object statement) (
 )
 
 def compileExpression(object expression) (
+  //log "expr" expression
   switch expression.kind (
     case "call"
       local func @= compileExpression(expression.func)
@@ -66,27 +240,84 @@ def compileExpression(object expression) (
       if typeof(val) != "array" and val.isError (
         return val
       )
-      
+      local out @= val
       switch expression.tar.kind (
         case "var"
+          void out.append(rtr.instruction.asivar(expression.tar.name, expression.op))
+          return out
+        case "prop"
+          out ++= compileExpression(expression.tar.obj)
+          if typeof(expression.tar.key) == "string" (
+            out += rtr.instruction.str(expression.tar.key)
+          ) else (
+            out ++= compileExpression(expression.tar.key)
+          )
+          void out.append(rtr.instruction.asiprop(expression.op))
+          return out
       )
       
-      break
-    // unary
-    // binary
-    
+      return [rtr.instruction.null()]
+    case "unary"
+      local val @= compileExpression(expression.expr)
+      
+      local out @= []
+      out ++= val
+      out += rtr.instruction.unary(expression.type)
+      
+      return out
+    case "binary"
+      local left @= compileExpression(expression.left)
+      if typeof(left) != "array" and left.isError (
+        return left
+      )
+      local right @= compileExpression(expression.right)
+      if typeof(right) != "array" and right.isError (
+        return right
+      )
+      
+      local out @= []
+      out ++= left
+      out ++= right
+      out += rtr.instruction.binary(expression.op)
+      
+      return out
     case "var"
       return [rtr.instruction.get(expression.name)]
-    // prop
+    case "prop"
+      local out @= []
+      out ++= compileExpression(expression.obj)
+      if typeof(expression.key) == "string" (
+        out += rtr.instruction.str(expression.key)
+      ) else (
+        out ++= compileExpression(expression.key)
+      )
+      out += rtr.instruction.prop()
+      return out
     
     case "str"
       return [rtr.instruction.str(expression.val)]
     case "num"
       return [rtr.instruction.num(expression.val)]
-    // func
-    // arr
-    // obj
-    // color
+    case "func"
+      return [rtr.instruction.func(compileStatement(expression.body), expression.args)]
+    case "arr"
+      local out @= []
+      for i expression.elems.len (
+        out ++= compileExpression(expression.elems[i])
+      )
+      out += rtr.instruction.arr(expression.elems.len)
+      return out
+    case "obj"
+      local out @= []
+      local keys @= []
+      for i expression.pairs.len (
+        out ++= compileExpression(expression.pairs[i].value)
+        void keys.append(expression.pairs[i].name)
+      )
+      out += rtr.instruction.obj(keys)
+      return out
+    case "color"
+      return [rtr.instruction.color(expression.val)]
     
     default
       log expression

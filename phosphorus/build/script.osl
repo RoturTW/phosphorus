@@ -2,6 +2,353 @@ opal_imports = {}
 def import(path) (
   switch path (
 
+case "./src/devtools/menus/compiled.osl"
+  class __imports__c2496c7321897b9bfcdc4b07bd6e8f28 (
+    boolean exit = false
+    selectedCode = null
+    
+    object highlighting = {
+      program_flow: {
+        color: #ff4b19,
+        names: [
+          "label",
+          
+          "jump",
+          "jumpIf",
+          "jumpNotIf"
+        ]
+      },
+      operations: {
+        color: #ff8119,
+        names: [
+          "call",
+          "unary",
+          "binary",
+          "prop",
+          "len",
+          
+          "asivar",
+          "asiprop"
+        ]
+      },
+      values: {
+        color: #52e342,
+        names: [
+          "null",
+          "str",
+          "num",
+          "func",
+          "arr",
+          "obj",
+          "color"
+        ]
+      },
+      scope: {
+        color: #00edb6,
+        names: [
+          "get",
+          "decl",
+          
+          "newScope",
+          "popScope"
+        ]
+      },
+      stack: {
+        color: #cd27e3,
+        names: [
+          "pop",
+          "dupe"
+        ]
+      }
+    }
+    
+    object colors = {
+      label: #34eb9b,
+      num: #34eb3a,
+      str: #eba434,
+      col: #73a7f0,
+      var: #cf8846
+    }
+    
+    def getInst() (
+      return layouts.shared.state.currentDocument.rtrInst
+    )
+    
+    def topbar() (
+      if self.selectedCode == null (
+        self.topbarHeight = -1
+      ) else (
+        self.topbarHeight = null
+        
+        goto frame.left + 10 0
+        square 15 15 0 0 1
+        if mouse_touching (
+          cursor "pointer"
+          if onclick (
+            self.exit = true
+            self.topbarHeight = -1
+          )
+        )
+        icon "left" .5 : c#shared.theme.text
+        
+        change_x 15
+        
+        c shared.theme.prim
+        pen "size" 2
+        change_y 11
+        pen "down"
+        change_y -22
+        pen "up"
+        change_y 11
+        
+        change_x 7.5
+        drawLoc(self.selectedCode)
+      )
+    )
+    
+    def update() (
+      local inst @= self.getInst()
+      
+      if self.selectedCode == null (
+        // selector screen
+        local y = frame.top
+        
+        if inst.compiled != null (
+          for i inst.compiled.len (
+            local comp @= inst.compiled[i]
+            
+            y -= 15
+            goto frame.left + 7.5 y
+            
+            drawLoc(comp)
+            
+            goto frame.right + 16 y
+            square 10 10 12 : chx#-30 c#shared.theme.prim hover_c#shared.theme.seco
+            if mouse_touching (
+              cursor "pointer"
+              if onclick (
+                self.selectedCode @= comp
+              )
+            )
+            icon "open" .6 : c#shared.theme.text
+            
+            y -= 15
+            goto 0 y
+            pen "size" 2
+            line frame.left 0 frame.right 0 : c#shared.theme.prim
+          )
+        ) else (
+          goto 0 0
+          centext "nothing compiled" 10 : c#shared.theme.prim
+        )
+      ) else (
+        self.y = frame.top + frame.scroll
+        local start = self.y
+        drawInstructions(self.selectedCode.body, frame.left + 15)
+        self.height = start - self.y - 10
+      )
+      if self.exit (
+        self.exit = false
+        self.selectedCode = null
+      )
+    )
+    
+    def drawLoc(object comp) (
+      local txt = comp.start.loc ?? "unknown"
+      txt += comp.start.ln
+      txt ++= ":"
+      txt ++= comp.start.char
+      txt += "-"
+      txt += comp.end.ln
+      txt ++= ":"
+      txt ++= comp.end.char
+      text txt 10 : c#shared.theme.text
+    )
+    
+    def drawInstructions(array instructions, number x) (
+      for i instructions.len (
+        if instructions[i] != null (
+          drawInstruction(instructions[i], x, instructions, i)
+        )
+      )
+    )
+    
+    def drawInstruction(object instruction, number x, array instructions, number i) (
+      local height = 25
+      instruction.editorX = x
+      
+      self.y -= height / 2
+      instruction.editorY = self.y
+      if !(self.y - height > frame.top or self.y < frame.bottom) (
+        local fromleft = x - frame.left
+        goto fromleft / 2 self.y
+        square frame.width - fromleft height 0 0 1
+        if mouse_touching (
+          change_x -2.5
+          square frame.width - fromleft - 15 height - 15 10 : c#shared.theme.prim
+        
+          local corresponding = self.getCorresponding(instructions, i)
+          if corresponding != null (
+            goto x self.y
+            c shared.theme.tert
+            pen "size" 2.5
+            pen "down"
+            goto x - 7.5 self.y
+            goto x - 7.5 corresponding.editorY
+            goto x corresponding.editorY
+            pen "up"
+          )
+        )
+        
+        goto x + 5 self.y
+        
+        c shared.theme.text
+        local categories @= self.highlighting.getValues()
+        for i categories.len (
+          if categories[i].names.contains(instruction.kind) (
+            c categories[i].color
+          )
+        )
+        
+        text instruction.kind 9
+        
+        void self.drawData(instruction)
+      )
+      
+      self.y -= height / 2
+      
+      if instruction.kind == "func" (
+        drawInstructions(instruction.body, x + 20)
+      )
+    )
+    
+    def drawData(object instruction) (
+      switch instruction.kind (
+        case "label"
+          drawLabel(instruction.name)
+          break
+        case "jump"; case "jumpIf"; case "jumpNotIf";
+          drawLabel(instruction.label)
+          break
+        
+        case "call"
+          drawArgName("args")
+          drawNum(instruction.args)
+          break
+        case "unary"; case "binary"
+          drawStr(instruction.op)
+          break
+        
+        case "str"
+          drawStr(instruction.data)
+          break
+        case "num"
+          drawNum(instruction.data)
+          break
+        case "func"
+          drawArgs(instruction.args)
+          break
+        case "arr"
+          drawArgName("elems")
+          drawNum(instruction.elems)
+          break
+        case "obj"
+          drawArr(instruction.keys)
+          break
+        case "color"
+          drawColor(instruction.data)
+          break
+        
+        case "get"
+          drawVar(instruction.name)
+          break
+        case "decl"
+          drawVar(instruction.name)
+          break
+        
+        case "dupe"
+          drawArgName("idx")
+          drawNum(instruction.i)
+      )
+    )
+    
+    def drawArgName(string name) (
+      text name 9 : c#shared.theme.text chx#7.5
+      text "=" 9 : chx#5
+      change_x -2.5
+    )
+    
+    def drawNum(number num) (
+      text num 9 : c#self.colors.num chx#7.5
+    )
+    def drawStr(string str) (
+      text str.JsonStringify() 9 : c#self.colors.str chx#7.5
+    )
+    def drawColor(string col) (
+      text col 9 : c#self.colors.col chx#7.5
+    )
+    def drawArr(array arr) (
+      text arr.join(" ") 9 : c#shared.theme.text chx#7.5
+    )
+    def drawArgs(array args) (
+      text args.map(a -> "@" ++ a.name).join(" ") 9 : c#self.colors.var chx#7.5
+    )
+    def drawVar(string name) (
+      text "@" ++ name 9 : c#self.colors.var chx#7.5
+    )
+    def drawLabel(string name) (
+      text "#" ++ name 9 : c#self.colors.label chx#7.5
+    )
+    
+    def getCorresponding(array instructions, number i) (
+      local cur @= instructions[i]
+      
+      if cur.kind == "newScope" (
+        local depth = 0
+        while i < instructions.len (
+          i ++
+          local instruction @= instructions[i]
+          if instruction.kind == "newScope" (
+            depth ++
+          )
+          if instruction.kind == "popScope" (
+            if depth == 0 (
+              return instruction
+            )
+            depth --
+          )
+        )
+      )
+      if cur.kind == "popScope" (
+        local depth = 0
+        while i > 0 (
+          i --
+          local instruction @= instructions[i]
+          if instruction.kind == "newScope" (
+            if depth == 0 (
+              return instruction
+            )
+            depth ++
+          )
+          if instruction.kind == "popScope" (
+            depth --
+          )
+        )
+      )
+      
+      if ["jump","jumpIf","jumpNotIf"].contains(cur.kind) (
+        for i instructions.len (
+          local instruction @= instructions[i]
+          if instruction.kind == "label" (
+            if instruction.name == cur.label (
+              return instruction
+            )
+          )
+        )
+      )
+    )
+  )
+  return __imports__c2496c7321897b9bfcdc4b07bd6e8f28
 case "./src/devtools/menus/storage.osl"
   class __imports__968375a74382766e626cb371cd10b43a (
     
@@ -923,7 +1270,7 @@ case "./src/devtools/topbar.osl"
     def update() (
       square frame.width frame.height 0 0 1
       if mouse_touching (
-        self.tabs_scroll += scroll.x.velocity + scroll.y.velocity * scroll.multiplier * 1.5
+        self.tabs_scroll += scroll.x.velocity + (scroll.y.velocity * -1.5) * scroll.multiplier
       )
       
       self.tabs_scroll = min(self.tabs_scroll, self.tabs_width - frame.width)
@@ -947,7 +1294,7 @@ case "./src/devtools/topbar.osl"
           c shared.theme.tert
           cursor "pointer"
           if onclick (
-            devtools.main.menu = menu[1]
+            void shared.settings.set("devtools", "menu", menu[1])
           )
         )
         pen "size" 2
@@ -971,7 +1318,7 @@ case "./src/devtools/main.osl"
     
     hoveredElement = 0
     
-    menu = "console"
+    string menu = "console"
     
     def alwaysUpdate() (
       self.hoveredElement = 0
@@ -997,7 +1344,6 @@ case "./src/devtools/main.osl"
               )
               open_rightclick devtools.rightclick.topbar_more
             ))
-            p.data @= devtools.rightclick.topbar_more
           )
         )
       )
@@ -1203,6 +1549,22 @@ case "./src/shared/settings.osl"
           applySetting: def(string value) -> (
             devtools.main.anchor = value
           )
+        },
+        open: {
+          type: "boolean",
+          desc: "if devtools is open or not",
+          default: false,
+          applySetting: def(boolean value) -> (
+            devtools.main.open = value
+          )
+        },
+        menu: {
+          type: "string",
+          desc: "current open devtools menu",
+          default: "console",
+          applySetting: def(string value) -> (
+            devtools.main.menu = value
+          )
         }
       },
       net: {
@@ -1314,7 +1676,8 @@ case "./src/shared/input.osl"
       
       // TODO: make a keybind system?
       if "`".onKeyDown() (
-        devtools.main.open = !devtools.main.open
+        void shared.settings.set("devtools", "open", !shared.settings.get("devtools", "open"))
+        //devtools.main.open = !devtools.main.open
       )
     )
   )
@@ -1394,6 +1757,7 @@ case "./src/shared/config.osl"
         string version = "1.0.0a"
         
         boolean usesCanvas = false
+        boolean useCompiler = true
       )
     )
   )
@@ -1784,9 +2148,35 @@ case "./src/shared/graphics.osl"
   return __imports__8840a5e065c53e817186a2216f863bca
 case "./src/rtr/instruction.osl"
   class __imports__63f619ecaeba64e54adfad70c460fe06 (
+    // program flow
+    def label(string name) (
+      return { kind: "label", name }
+    )
+    def jump(string label) (
+      return { kind: "jump", label }
+    )
+    def jumpIf(string label) (
+      return { kind: "jumpIf", label }
+    )
+    def jumpNotIf(string label) (
+      return { kind: "jumpNotIf", label }
+    )
+    
     // operations
     def callOp(number amount) (
       return { kind: "call", args: amount }
+    )
+    def unary(string op) (
+      return { kind: "unary", op }
+    )
+    def binary(string op) (
+      return { kind: "binary", op }
+    )
+    def prop() (
+      return { kind: "prop" }
+    )
+    def len() (
+      return { kind: "len" }
     )
     
     // values
@@ -1799,28 +2189,62 @@ case "./src/rtr/instruction.osl"
     def num(number data) (
       return { kind: "num", data }
     )
+    def func(array body, array args) (
+      return { kind: "func", body, args }
+    )
+    def arr(number elems) (
+      return { kind: "arr", elems }
+    )
+    def obj(array keys) (
+      return { kind: "obj", keys }
+    )
+    def color(string data) (
+      return { kind: "color", data }
+    )
     
     // scope
     def get(string name) (
       return { kind: "get", name }
     )
-    def set(string name) (
-      return { kind: "set", name }
-    )
     def decl(string name) (
       return { kind: "decl", name }
+    )
+    def newScope() (
+      return { kind: "newScope" }
+    )
+    def popScope() (
+      return { kind: "popScope" }
+    )
+    
+    // assignments
+    def asivar(string name, op) (
+      return { kind: "asivar", name, op }
+    )
+    def asiprop(op) (
+      return { kind: "asiprop", op }
     )
     
     // stack
     def pop() (
       return { kind: "pop" }
     )
+    def dupe(number i) (
+      return { kind: "dupe", i }
+    )
   )
   return __imports__63f619ecaeba64e54adfad70c460fe06
 case "./src/rtr/compiler.osl"
   class __imports__bf40e68b061a1d99656fd4525ccf9d7b (
+    lbli = 0
+    
+    def getLabelName() (
+      self.lbli ++
+      return self.lbli.toStr()
+    )
+    
     def compileBlock(object block) (
       local instructions @= []
+      //log "blk" block
       for i block.elements.len (
         local out @= compileStatement(block.elements[i])
         if typeof(out) != "array" and out.isError (
@@ -1833,6 +2257,7 @@ case "./src/rtr/compiler.osl"
     )
     
     def compileStatement(object statement) (
+      //log "stat" statement
       switch statement.kind (
         case "expression"
           local out @= compileExpression(statement.expr)
@@ -1840,6 +2265,170 @@ case "./src/rtr/compiler.osl"
             return out
           )
           
+          out += rtr.instruction.pop()
+          return out
+        case "block"
+          local out @= compileBlock(statement.body)
+          if typeof(out) != "array" and out.isError (
+            return out
+          )
+          
+          return out
+        
+        case "branch"
+          local out @= []
+          local hasElse = statement.elifs.len > 0 or statement.elseBody != null
+          
+          local endLbl = getLabelName()
+          local elseLbl = hasElse ? getLabelName() endLbl
+          
+          local cond @= compileExpression(statement.cond)
+          if typeof(cond) != "array" and cond.isError (
+            return cond
+          )
+          out ++= cond
+          out += rtr.instruction.jumpNotIf(elseLbl)
+          local body @= compileStatement(statement.body)
+          if typeof(body) != "array" and body.isError (
+            return body
+          )
+          out ++= body
+          out += rtr.instruction.jump(endLbl)
+          
+          for i statement.elifs.len (
+            local elif @= statement.elifs[i]
+            local isLast = i == statement.elifs.len and statement.elseBody == null
+            out += rtr.instruction.label(elseLbl)
+            elseLbl = isLast ? endLbl getLabelName()
+            
+            local cond @= compileExpression(elif.cond)
+            if typeof(cond) != "array" and cond.isError (
+              return cond
+            )
+            out ++= cond
+            out += rtr.instruction.jumpNotIf(elseLbl)
+            local body @= compileStatement(elif.body)
+            if typeof(body) != "array" and body.isError (
+              return body
+            )
+            out ++= body
+            out += rtr.instruction.jump(endLbl)
+          )
+          
+          if statement.elseBody != null (
+            out += rtr.instruction.label(elseLbl)
+            local body @= compileStatement(statement.elseBody)
+            if typeof(body) != "array" and body.isError (
+              return body
+            )
+            out ++= body
+          )
+          out += rtr.instruction.label(endLbl)
+          return out
+        
+        case "while"
+          local out @= []
+          
+          local startLbl @= getLabelName()
+          local endLbl @= getLabelName()
+          
+          out += rtr.instruction.label(startLbl)
+          local cond @= compileExpression(statement.cond)
+          if typeof(cond) != "array" and cond.isError (
+            return cond
+          )
+          out ++= cond
+          out += rtr.instruction.jumpNotIf(endLbl)
+          
+          local body @= compileStatement(statement.body)
+          if typeof(body) != "array" and body.isError (
+            return body
+          )
+          out ++= body
+          
+          out += rtr.instruction.jump(startLbl)
+          out += rtr.instruction.label(endLbl)
+          return out
+        case "until"
+          local out @= []
+          
+          local startLbl @= getLabelName()
+          local endLbl @= getLabelName()
+          
+          out += rtr.instruction.label(startLbl)
+          local cond @= compileExpression(statement.cond)
+          if typeof(cond) != "array" and cond.isError (
+            return cond
+          )
+          out ++= cond
+          out += rtr.instruction.jumpIf(endLbl)
+          
+          local body @= compileStatement(statement.body)
+          if typeof(body) != "array" and body.isError (
+            return body
+          )
+          out ++= body
+          
+          out += rtr.instruction.jump(startLbl)
+          out += rtr.instruction.label(endLbl)
+          return out
+        case "repeat"
+          local out @= []
+          
+          local startLbl @= getLabelName()
+          local endLbl @= getLabelName()
+          
+          out += rtr.instruction.num(1)
+          out += rtr.instruction.label(startLbl)
+          out += rtr.instruction.dupe(-1)
+          local amt @= compileExpression(statement.amount)
+          if typeof(amt) != "array" and amt.isError (
+            return amt
+          )
+          out ++= amt
+          out += rtr.instruction.binary(">")
+          out += rtr.instruction.jumpIf(endLbl)
+          
+          out ++= compileStatement(statement.body)
+          
+          out += rtr.instruction.num(1)
+          out += rtr.instruction.binary("+")
+          out += rtr.instruction.jump(startLbl)
+          out += rtr.instruction.label(endLbl)
+          out += rtr.instruction.pop()
+          return out
+        case "for"
+          local out @= []
+          
+          local startLbl @= getLabelName()
+          local endLbl @= getLabelName()
+          local arr @= compileExpression(statement.arr)
+          if typeof(arr) != "array" and arr.isError (
+            return arr
+          )
+          out ++= arr
+          out += rtr.instruction.num(0)
+          out += rtr.instruction.label(startLbl)
+          out += rtr.instruction.dupe(-2)
+          out += rtr.instruction.len()
+          out += rtr.instruction.dupe(-2)
+          out += rtr.instruction.binary("<=")
+          out += rtr.instruction.jumpIf(endLbl)
+          out += rtr.instruction.dupe(-2)
+          out += rtr.instruction.dupe(-2)
+          out += rtr.instruction.prop()
+          out += rtr.instruction.newScope()
+          out += rtr.instruction.decl(statement.var)
+          out += rtr.instruction.pop()
+          
+          out ++= compileStatement(statement.body)
+          
+          out += rtr.instruction.popScope()
+          out += rtr.instruction.num(1)
+          out += rtr.instruction.binary("+")
+          out += rtr.instruction.jump(startLbl)
+          out += rtr.instruction.label(endLbl)
+          out += rtr.instruction.pop()
           out += rtr.instruction.pop()
           return out
         
@@ -1851,6 +2440,7 @@ case "./src/rtr/compiler.osl"
     )
     
     def compileExpression(object expression) (
+      //log "expr" expression
       switch expression.kind (
         case "call"
           local func @= compileExpression(expression.func)
@@ -1886,27 +2476,84 @@ case "./src/rtr/compiler.osl"
           if typeof(val) != "array" and val.isError (
             return val
           )
-          
+          local out @= val
           switch expression.tar.kind (
             case "var"
+              void out.append(rtr.instruction.asivar(expression.tar.name, expression.op))
+              return out
+            case "prop"
+              out ++= compileExpression(expression.tar.obj)
+              if typeof(expression.tar.key) == "string" (
+                out += rtr.instruction.str(expression.tar.key)
+              ) else (
+                out ++= compileExpression(expression.tar.key)
+              )
+              void out.append(rtr.instruction.asiprop(expression.op))
+              return out
           )
           
-          break
-        // unary
-        // binary
-        
+          return [rtr.instruction.null()]
+        case "unary"
+          local val @= compileExpression(expression.expr)
+          
+          local out @= []
+          out ++= val
+          out += rtr.instruction.unary(expression.type)
+          
+          return out
+        case "binary"
+          local left @= compileExpression(expression.left)
+          if typeof(left) != "array" and left.isError (
+            return left
+          )
+          local right @= compileExpression(expression.right)
+          if typeof(right) != "array" and right.isError (
+            return right
+          )
+          
+          local out @= []
+          out ++= left
+          out ++= right
+          out += rtr.instruction.binary(expression.op)
+          
+          return out
         case "var"
           return [rtr.instruction.get(expression.name)]
-        // prop
+        case "prop"
+          local out @= []
+          out ++= compileExpression(expression.obj)
+          if typeof(expression.key) == "string" (
+            out += rtr.instruction.str(expression.key)
+          ) else (
+            out ++= compileExpression(expression.key)
+          )
+          out += rtr.instruction.prop()
+          return out
         
         case "str"
           return [rtr.instruction.str(expression.val)]
         case "num"
           return [rtr.instruction.num(expression.val)]
-        // func
-        // arr
-        // obj
-        // color
+        case "func"
+          return [rtr.instruction.func(compileStatement(expression.body), expression.args)]
+        case "arr"
+          local out @= []
+          for i expression.elems.len (
+            out ++= compileExpression(expression.elems[i])
+          )
+          out += rtr.instruction.arr(expression.elems.len)
+          return out
+        case "obj"
+          local out @= []
+          local keys @= []
+          for i expression.pairs.len (
+            out ++= compileExpression(expression.pairs[i].value)
+            void keys.append(expression.pairs[i].name)
+          )
+          out += rtr.instruction.obj(keys)
+          return out
+        case "color"
+          return [rtr.instruction.color(expression.val)]
         
         default
           log expression
@@ -2122,7 +2769,6 @@ case "./src/rtr/value.osl"
         return self.func(args, inst, extra) ?? rtr.value.RTRNullValue()
       )
     )
-    
     class RTRAstFuncValue extends RTRFuncValue (
       def init(array args, object body) (
         self.args @= args
@@ -2150,6 +2796,29 @@ case "./src/rtr/value.osl"
         void inst.popScope()
         
         return ret
+      )
+    )
+    class RTRBytecodeFuncValue extends RTRFuncValue (
+      def init(array args, array body) (
+        self.args @= args
+        self.body @= body
+      )
+      
+      def callFunc(object inst, array args) (
+        local s @= {}
+        for i self.args.len (
+          local a @= self.args[i]
+          local v @= args[i] ?? rtr.value.RTRNullValue()
+          s[a.name] @= [v, {}]
+        )
+        
+        void inst.newScope(s)
+        
+        local exprOut @= inst.runInstructions(self.body)
+        
+        void inst.popScope()
+        
+        return exprOut
       )
     )
     
@@ -2296,7 +2965,8 @@ case "./src/rtr/error.osl"
 case "./src/rtr/ast.osl"
   class __imports__2691a00e099698fa56c4748f2551eb65 (
     class Parser (
-      def init(string text) (
+      def init(string text, scriptLocation) (
+        self.scriptLocation @= scriptLocation
         void self.tokenise(text)
       )
       
@@ -2353,15 +3023,18 @@ case "./src/rtr/ast.osl"
       def getPos() (
         local ln = 1
         local col = 0
+        local char = 0
         local i = self.pointer
         for t self.pointer (
           col ++
+          char += self.tokens[t].len
           if self.tokens[t] == "\n" (
             ln ++
             col = 0
+            char = 0
           )
         )
-        return { ln, col, i }
+        return { ln, col, char, i, loc: self.scriptLocation }
       )
       
       def tokenise(string text) (
@@ -2397,7 +3070,7 @@ case "./src/rtr/ast.osl"
       // statements
       def blockContent(top) (
         local statements @= []
-        local end = peek() == "}"
+        local end = peek() == "}" or self.atEnd()
         while !end (
           if top (
             local out @= self.topLevelStatement()
@@ -2886,7 +3559,7 @@ case "./src/rtr/ast.osl"
               return {
                 kind: "unary",
                 type: self.consume(),
-                expr: self.expression()
+                expr: self.callExpr()
               }
           )
         )
@@ -3521,6 +4194,25 @@ case "./src/rtr/main.osl"
         return self.runBlock(ev.body)
       )
       def runBlock(object block) (
+        if shared.config.browser.phosphorus.useCompiler and block.compile == null (
+          local compileOut @= rtr.compiler.compileBlock(block)
+          if typeof(compileOut) != "array" and compileOut.isError (
+            block.compile = false
+          ) else (
+            block.compile @= compileOut
+          )
+          self.inst.compiled ??= []
+          void self.inst.compiled.append({
+            body: compileOut,
+            start: block.start,
+            end: block.end,
+            ast: block
+          })
+        )
+        if block.compile != null (
+          return self.runInstructions(block.compile)
+        )
+        
         local elements @= block.elements
         local outVal @= rtr.value.RTRNullValue()
         void self.newScope({})
@@ -3622,7 +4314,7 @@ case "./src/rtr/main.osl"
             )
             
             if expression.op != null (
-              val @= self.runOperation(existing, expression.op, val)
+              val @= self.runBinary(existing, expression.op, val)
             )
             
             switch expression.tar.kind (
@@ -3645,7 +4337,7 @@ case "./src/rtr/main.osl"
                 ) else (
                   key @= self.runExpression(key)
                 )
-                obj.setItem(key, val)
+                void obj.setItem(key, val)
                 break
               default
                 throw "cannot assign to" + expression.tar.kind
@@ -3654,21 +4346,11 @@ case "./src/rtr/main.osl"
             return val
           case "unary"
             local val @= self.runExpression(expression.expr)
-            switch expression.type (
-              case "-"
-                return rtr.value.RTRNumValue(-val.numbify())
-              case "+"
-                return rtr.value.RTRNumValue(val.numbify())
-              case "!"
-                return rtr.value.RTRBoolValue(!val.boolify())
-              case "?"
-                return rtr.value.RTRBoolValue(val.boolify())
-            )
-            return rtr.value.RTRNullValue()
+            return self.runUnary(expression.type, val)
           case "binary"
             local left @= self.runExpression(expression.left)
             local right @= self.runExpression(expression.right)
-            return self.runOperation(left, expression.op, right)
+            return self.runBinary(left, expression.op, right)
           
           case "var"
             local val @= self.getScopeVar(expression.name)
@@ -3705,7 +4387,20 @@ case "./src/rtr/main.osl"
             throw "unknown expression type" + expression.kind
         )
       )
-      def runOperation(object left, op, object right) (
+      def runUnary(string op, object val) (
+        switch op (
+          case "-"
+            return rtr.value.RTRNumValue(-val.numbify())
+          case "+"
+            return rtr.value.RTRNumValue(val.numbify())
+          case "!"
+            return rtr.value.RTRBoolValue(!val.boolify())
+          case "?"
+            return rtr.value.RTRBoolValue(val.boolify())
+        )
+        return rtr.value.RTRNullValue()
+      )
+      def runBinary(object left, string op, object right) (
         local numT @= rtr.value.RTRNumValue.getRtrType()
         switch op (
           case "+"
@@ -3761,26 +4456,74 @@ case "./src/rtr/main.osl"
       )
       
       def runInstructions(array instructions) (
-        self.stack @= []
+        self.stack ??= []
+        
+        local labels @= {}
         
         for i instructions.len (
           local instruction @= instructions[i]
+          if instruction.kind == "label" (
+            labels[instruction.name] = i
+          )
+        )
+        
+        local i = 0
+        local iters = 0
+        while i < instructions.len and iters < 1000 (
+          i ++
+          iters ++
+          local instruction @= instructions[i]
+          //log i iters instruction self.stack.map(s -> s.stringify())
           switch instruction.kind (
-            case "call"
-              local args @= []
-              loop instruction.args (
-                void args.prepend(self.stack.pop())
+            case "label"; break
+            case "jump"
+              i = labels[instruction.label] ?? i
+              break
+            case "jumpIf"
+              local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              if val.boolify() (
+                i = labels[instruction.label] ?? i
               )
-              local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
-              local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
-              void self.stack.append(out)
-              if self.returnVal != null (
-                local out @= self.returnVal
-                self.returnVal = null
-                return out
+              break
+            case "jumpNotIf"
+              local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              if !val.boolify() (
+                i = labels[instruction.label] ?? i
               )
               break
             
+            case "call"
+              local args @= []
+              loop instruction.args (
+                void args.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+              )
+              local func @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              local out @= func.callFunc(self, args) ?? rtr.value.RTRNullValue()
+              if self.returnVal != null (
+                local out @= self.returnVal
+                self.returnVal = null
+              )
+              void self.stack.append(out)
+              break
+            case "unary"
+              local val @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              void self.stack.append(self.runUnary(instruction.op, val))
+              break
+            case "binary"
+              local right @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              local left @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              void self.stack.append(self.runBinary(left, instruction.op, right))
+              break
+            case "prop"
+              local key @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              void self.stack.append(obj.getItem(key))
+              break
+            case "len"
+              local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              void self.stack.append(rtr.value.RTRNumValue(obj.length()))
+              break
+              
             case "null"
               void self.stack.append(rtr.value.RTRNullValue())
               break
@@ -3790,20 +4533,86 @@ case "./src/rtr/main.osl"
             case "num"
               void self.stack.append(rtr.value.RTRNumValue(instruction.data))
               break
+            case "func"
+              void self.stack.append(rtr.value.RTRBytecodeFuncValue(instruction.args, instruction.body))
+              break
+            case "arr"
+              local elems @= []
+              loop instruction.elems (
+                void elems.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+              )
+              void self.stack.append(rtr.value.RTRArrValue(elems))
+              break
+            case "obj"
+              local values @= []
+              loop instruction.keys.len (
+                void values.prepend(self.stack.pop() ?? rtr.value.RTRNullValue())
+              )
+              
+              local obj @= {}
+              for obji values.len (
+                obj[instruction.keys[obji]] @= values[obji]
+              )
+              void self.stack.append(rtr.value.RTRObjValue(obj))
+              break
+            case "color"
+              void self.stack.append(rtr.value.RTRColorValue(instruction.data))
+              break
             
             case "get"
               local val @= self.getScopeVar(instruction.name) ?? rtr.value.RTRNullValue()
               void self.stack.append(val)
               break
             case "decl"
-              local val @= self.stack.pop()
+              local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
               void self.declScopeVar(instruction.name, val, {
                 type: val.getRtrType()
               })
               break
+            case "newScope"
+              void self.newScope({})
+              break
+            case "popScope"
+              void self.popScope()
+              break
+            
+            case "asivar"
+              local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
+              
+              local existingMeta @= self.getScopeVarMeta(instruction.name)
+              local existing @= self.getScopeVar(instruction.name)
+              
+              if instruction.op != null (
+                val @= self.runBinary(existing, instruction.op, val)
+              )
+              
+              local curType @= val.getRtrType()
+              if existingMeta.type != null (
+                if !existingMeta.type.isEqual(curType) (
+                  // replace with return err
+                  throw "cannot assign" + curType.stringify() + "to" + existingMeta.type.stringify() + "variable" 
+                )
+              )
+              
+              void self.setScopeVar(instruction.name, val)
+              break
+            case "asiprop"
+              local key @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              local obj @= self.stack.pop() ?? rtr.value.RTRNullValue()
+              
+              local val @= self.stack[-1] ?? rtr.value.RTRNullValue()
+              if instruction.op != null (
+                val @= self.runBinary(obj.getItem(key), instruction.op, val)
+              )
+              
+              void obj.setItem(key, val)
+              break
             
             case "pop"
               void self.stack.pop()
+              break
+            case "dupe"
+              void self.stack.append(self.stack[instruction.i])
               break
             
             default
@@ -3812,7 +4621,7 @@ case "./src/rtr/main.osl"
           
         )
         
-        return self.stack.pop()
+        return rtr.value.RTRNullValue()
       )
     )
     
@@ -5983,13 +6792,13 @@ case "./src/assets/empty.rwl"
   return "  root {\n    \"grahhh\"\n  }"
 
 case "./sidebartest.rwl"
-  return "  root {\n    frame [Horizontal, id=\"bleh\"] {\n      section [\n        id=\"sidebar\",\n        size=150, color=theme:prim,\n        rounding_tr=17.5, rounding_br=17.5,\n        padding=10\n      ] {},\n      section {\n      }\n    },\n    \n    script {\n      event(onload) {\n        i := 0;\n        createSidebarButton := (name) ~ {\n          i = i + 1;\n          elem := document.createContainer(\"button\");\n          elem.height = 35;\n          elem.padding = 10;\n          elem.color = theme.seco;\n          elem.hover_color = theme.tert;\n          elem.rounding = 10;\n          elem.id = \"btn\" + i;\n          if (i == 1) {\n            elem.anchor = \"t\";\n          }\n          elem.margin_b = 10;\n          document.getElement(\"sidebar\").addChild(elem);\n          \n          script := document.createScript(\"event(#\" + elem.id + \":click) {\\n  log(\\\"\" + name + \" clicked!\\\");\\n}\\n\");\n          document.root.addChild(script);\n          \n          text := document.createTextElement(name);\n          text.color = theme.text;\n          elem.addChild(text);\n        };\n        \n        btns := [\n          \"hi\",\n          \"wow\",\n          \"blehh\",\n          \"fr\"\n        ];\n        \n        for (btn, btns) {\n          createSidebarButton(btn);\n        }\n      }\n    }\n  }"
+  return "  root {\n    frame [Horizontal, id=\"bleh\"] {\n      section [\n        id=\"sidebar\",\n        size=150, color=theme:prim,\n        rounding_tr=17.5, rounding_br=17.5,\n        padding=10\n      ] {},\n      section {\n      }\n    },\n    \n    script {\n      event(onload) {\n        i := 0;\n        createSidebarButton := (name) ~ {\n          i = i + 1;\n          elem := document.createContainer(\"button\");\n          elem.height = 35;\n          elem.padding = 10;\n          elem.color = theme.seco;\n          elem.hover_color = theme.tert;\n          elem.rounding = 10;\n          elem.id = \"btn\" + i;\n          if (i == 1) {\n            elem.anchor = \"t\";\n          }\n          elem.margin_b = 10;\n          document.getElement(\"sidebar\").addChild(elem);\n          \n          script := document.createScript(\"event(#\" + elem.id + \":click) {\\n  log(\\\"\" + name + \" clicked!\\\");\\n}\\n\");\n          document.root.addChild(script);\n          \n          text := document.createTextElement(name);\n          text.color = theme.text;\n          elem.addChild(text);\n        };\n        \n        btns := [\n          \"hi\",\n          \"wow\",\n          \"blehh\",\n          \"fr\"\n        ];\n        \n        for (btn, btns) {\n          log(btn);\n          createSidebarButton(btn);\n        }\n      }\n    }\n  }"
 
 case "./test.rwl"
   return "  root [color=theme:prim] {\n    frame [Horizontal] {\n      section [size=100, rounding_tr=20, rounding_br=20] {\n        \"fr\" [color=theme:seco]\n      },\n      section {\n        frame [Vertical] {\n          section [size=50] {\n            \"maybe?\" [color=theme:text, anchor=\"l\", padding=10, size=15]\n          },\n          section [color=theme:back, rounding=20, margin_r=10, margin_b=10, padding=20] {\n            \"blehhh\" [color=theme:text],\n            \"fr\",\n            button [color=theme:prim,padding=5,rounding=5] {\n              \"hi\"\n            },\n            \":P\" [anchor=\"bl\",size=5]\n          }\n        }\n      }\n    },\n    script {\n      event(onload) {\n        log(\"blehh\");\n        \n        document.title = \"gay\";\n        document.icon = \"flag-progress\";\n      }\n    }\n  }"
 
 case "./main.rwl"
-  return "  root {\n    script {\n      test := \"hi\";\n      event(onload) {\n        log(test);\n      }\n    }\n  }"
+  return "  root {\n    script {\n      event(onload) {\n        goob := #fff;\n        log(goob);\n      }\n    }\n  }"
 )
 )
 import as "glass" from "packages"
@@ -6065,7 +6874,8 @@ object devtools @= {
     elements: import("./src/devtools/menus/elements.osl"),
     console: import("./src/devtools/menus/console.osl"),
     network: import("./src/devtools/menus/network.osl"),
-    storage: import("./src/devtools/menus/storage.osl")
+    storage: import("./src/devtools/menus/storage.osl"),
+    compiled: import("./src/devtools/menus/compiled.osl")
   }
 }
 
@@ -6083,6 +6893,10 @@ if true (
   local document2 @= shared.document.Document()
   void document2.loadUrl(shared.url.Url("local://./test.rwl"))
   void layouts.shared.state.openTabDocument(document2)
+  
+  local document3 @= shared.document.Document()
+  void document3.loadUrl(shared.url.Url("local://./sidebartest.rwl"))
+  void layouts.shared.state.openTabDocument(document3)
 ) else (
   void layouts.shared.state.openEmptyTab()
 )

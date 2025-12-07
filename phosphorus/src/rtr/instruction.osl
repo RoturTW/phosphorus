@@ -1,7 +1,33 @@
 
+// program flow
+def label(string name) (
+  return { kind: "label", name }
+)
+def jump(string label) (
+  return { kind: "jump", label }
+)
+def jumpIf(string label) (
+  return { kind: "jumpIf", label }
+)
+def jumpNotIf(string label) (
+  return { kind: "jumpNotIf", label }
+)
+
 // operations
 def callOp(number amount) (
   return { kind: "call", args: amount }
+)
+def unary(string op) (
+  return { kind: "unary", op }
+)
+def binary(string op) (
+  return { kind: "binary", op }
+)
+def prop() (
+  return { kind: "prop" }
+)
+def len() (
+  return { kind: "len" }
 )
 
 // values
@@ -14,19 +40,45 @@ def str(string data) (
 def num(number data) (
   return { kind: "num", data }
 )
+def func(array body, array args) (
+  return { kind: "func", body, args }
+)
+def arr(number elems) (
+  return { kind: "arr", elems }
+)
+def obj(array keys) (
+  return { kind: "obj", keys }
+)
+def color(string data) (
+  return { kind: "color", data }
+)
 
 // scope
 def get(string name) (
   return { kind: "get", name }
 )
-def set(string name) (
-  return { kind: "set", name }
-)
 def decl(string name) (
   return { kind: "decl", name }
+)
+def newScope() (
+  return { kind: "newScope" }
+)
+def popScope() (
+  return { kind: "popScope" }
+)
+
+// assignments
+def asivar(string name, op) (
+  return { kind: "asivar", name, op }
+)
+def asiprop(op) (
+  return { kind: "asiprop", op }
 )
 
 // stack
 def pop() (
   return { kind: "pop" }
+)
+def dupe(number i) (
+  return { kind: "dupe", i }
 )

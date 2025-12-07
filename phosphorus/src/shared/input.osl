@@ -14,6 +14,7 @@ def update() (
   
   // TODO: make a keybind system?
   if "`".onKeyDown() (
-    devtools.main.open = !devtools.main.open
+    void shared.settings.set("devtools", "open", !shared.settings.get("devtools", "open"))
+    //devtools.main.open = !devtools.main.open
   )
 )

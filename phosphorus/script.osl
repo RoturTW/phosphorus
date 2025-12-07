@@ -71,7 +71,8 @@ object devtools @= {
     elements: import("./src/devtools/menus/elements.osl"),
     console: import("./src/devtools/menus/console.osl"),
     network: import("./src/devtools/menus/network.osl"),
-    storage: import("./src/devtools/menus/storage.osl")
+    storage: import("./src/devtools/menus/storage.osl"),
+    compiled: import("./src/devtools/menus/compiled.osl")
   }
 }
 
@@ -89,6 +90,10 @@ if true (
   local document2 @= shared.document.Document()
   void document2.loadUrl(shared.url.Url("local://./test.rwl"))
   void layouts.shared.state.openTabDocument(document2)
+  
+  local document3 @= shared.document.Document()
+  void document3.loadUrl(shared.url.Url("local://./sidebartest.rwl"))
+  void layouts.shared.state.openTabDocument(document3)
 ) else (
   void layouts.shared.state.openEmptyTab()
 )

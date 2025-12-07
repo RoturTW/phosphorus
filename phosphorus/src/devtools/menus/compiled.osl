@@ -1,0 +1,344 @@
+
+boolean exit = false
+selectedCode = null
+
+object highlighting = {
+  program_flow: {
+    color: #ff4b19,
+    names: [
+      "label",
+      
+      "jump",
+      "jumpIf",
+      "jumpNotIf"
+    ]
+  },
+  operations: {
+    color: #ff8119,
+    names: [
+      "call",
+      "unary",
+      "binary",
+      "prop",
+      "len",
+      
+      "asivar",
+      "asiprop"
+    ]
+  },
+  values: {
+    color: #52e342,
+    names: [
+      "null",
+      "str",
+      "num",
+      "func",
+      "arr",
+      "obj",
+      "color"
+    ]
+  },
+  scope: {
+    color: #00edb6,
+    names: [
+      "get",
+      "decl",
+      
+      "newScope",
+      "popScope"
+    ]
+  },
+  stack: {
+    color: #cd27e3,
+    names: [
+      "pop",
+      "dupe"
+    ]
+  }
+}
+
+object colors = {
+  label: #34eb9b,
+  num: #34eb3a,
+  str: #eba434,
+  col: #73a7f0,
+  var: #cf8846
+}
+
+def getInst() (
+  return layouts.shared.state.currentDocument.rtrInst
+)
+
+def topbar() (
+  if self.selectedCode == null (
+    self.topbarHeight = -1
+  ) else (
+    self.topbarHeight = null
+    
+    goto frame.left + 10 0
+    square 15 15 0 0 1
+    if mouse_touching (
+      cursor "pointer"
+      if onclick (
+        self.exit = true
+        self.topbarHeight = -1
+      )
+    )
+    icon "left" .5 : c#shared.theme.text
+    
+    change_x 15
+    
+    c shared.theme.prim
+    pen "size" 2
+    change_y 11
+    pen "down"
+    change_y -22
+    pen "up"
+    change_y 11
+    
+    change_x 7.5
+    drawLoc(self.selectedCode)
+  )
+)
+
+def update() (
+  local inst @= self.getInst()
+  
+  if self.selectedCode == null (
+    // selector screen
+    local y = frame.top
+    
+    if inst.compiled != null (
+      for i inst.compiled.len (
+        local comp @= inst.compiled[i]
+        
+        y -= 15
+        goto frame.left + 7.5 y
+        
+        drawLoc(comp)
+        
+        goto frame.right + 16 y
+        square 10 10 12 : chx#-30 c#shared.theme.prim hover_c#shared.theme.seco
+        if mouse_touching (
+          cursor "pointer"
+          if onclick (
+            self.selectedCode @= comp
+          )
+        )
+        icon "open" .6 : c#shared.theme.text
+        
+        y -= 15
+        goto 0 y
+        pen "size" 2
+        line frame.left 0 frame.right 0 : c#shared.theme.prim
+      )
+    ) else (
+      goto 0 0
+      centext "nothing compiled" 10 : c#shared.theme.prim
+    )
+  ) else (
+    self.y = frame.top + frame.scroll
+    local start = self.y
+    drawInstructions(self.selectedCode.body, frame.left + 15)
+    self.height = start - self.y - 10
+  )
+  if self.exit (
+    self.exit = false
+    self.selectedCode = null
+  )
+)
+
+def drawLoc(object comp) (
+  local txt = comp.start.loc ?? "unknown"
+  txt += comp.start.ln
+  txt ++= ":"
+  txt ++= comp.start.char
+  txt += "-"
+  txt += comp.end.ln
+  txt ++= ":"
+  txt ++= comp.end.char
+  text txt 10 : c#shared.theme.text
+)
+
+def drawInstructions(array instructions, number x) (
+  for i instructions.len (
+    if instructions[i] != null (
+      drawInstruction(instructions[i], x, instructions, i)
+    )
+  )
+)
+
+def drawInstruction(object instruction, number x, array instructions, number i) (
+  local height = 25
+  instruction.editorX = x
+  
+  self.y -= height / 2
+  instruction.editorY = self.y
+  if !(self.y - height > frame.top or self.y < frame.bottom) (
+    local fromleft = x - frame.left
+    goto fromleft / 2 self.y
+    square frame.width - fromleft height 0 0 1
+    if mouse_touching (
+      change_x -2.5
+      square frame.width - fromleft - 15 height - 15 10 : c#shared.theme.prim
+    
+      local corresponding = self.getCorresponding(instructions, i)
+      if corresponding != null (
+        goto x self.y
+        c shared.theme.tert
+        pen "size" 2.5
+        pen "down"
+        goto x - 7.5 self.y
+        goto x - 7.5 corresponding.editorY
+        goto x corresponding.editorY
+        pen "up"
+      )
+    )
+    
+    goto x + 5 self.y
+    
+    c shared.theme.text
+    local categories @= self.highlighting.getValues()
+    for i categories.len (
+      if categories[i].names.contains(instruction.kind) (
+        c categories[i].color
+      )
+    )
+    
+    text instruction.kind 9
+    
+    void self.drawData(instruction)
+  )
+  
+  self.y -= height / 2
+  
+  if instruction.kind == "func" (
+    drawInstructions(instruction.body, x + 20)
+  )
+)
+
+def drawData(object instruction) (
+  switch instruction.kind (
+    case "label"
+      drawLabel(instruction.name)
+      break
+    case "jump"; case "jumpIf"; case "jumpNotIf";
+      drawLabel(instruction.label)
+      break
+    
+    case "call"
+      drawArgName("args")
+      drawNum(instruction.args)
+      break
+    case "unary"; case "binary"
+      drawStr(instruction.op)
+      break
+    
+    case "str"
+      drawStr(instruction.data)
+      break
+    case "num"
+      drawNum(instruction.data)
+      break
+    case "func"
+      drawArgs(instruction.args)
+      break
+    case "arr"
+      drawArgName("elems")
+      drawNum(instruction.elems)
+      break
+    case "obj"
+      drawArr(instruction.keys)
+      break
+    case "color"
+      drawColor(instruction.data)
+      break
+    
+    case "get"
+      drawVar(instruction.name)
+      break
+    case "decl"
+      drawVar(instruction.name)
+      break
+    
+    case "dupe"
+      drawArgName("idx")
+      drawNum(instruction.i)
+  )
+)
+
+def drawArgName(string name) (
+  text name 9 : c#shared.theme.text chx#7.5
+  text "=" 9 : chx#5
+  change_x -2.5
+)
+
+def drawNum(number num) (
+  text num 9 : c#self.colors.num chx#7.5
+)
+def drawStr(string str) (
+  text str.JsonStringify() 9 : c#self.colors.str chx#7.5
+)
+def drawColor(string col) (
+  text col 9 : c#self.colors.col chx#7.5
+)
+def drawArr(array arr) (
+  text arr.join(" ") 9 : c#shared.theme.text chx#7.5
+)
+def drawArgs(array args) (
+  text args.map(a -> "@" ++ a.name).join(" ") 9 : c#self.colors.var chx#7.5
+)
+def drawVar(string name) (
+  text "@" ++ name 9 : c#self.colors.var chx#7.5
+)
+def drawLabel(string name) (
+  text "#" ++ name 9 : c#self.colors.label chx#7.5
+)
+
+def getCorresponding(array instructions, number i) (
+  local cur @= instructions[i]
+  
+  if cur.kind == "newScope" (
+    local depth = 0
+    while i < instructions.len (
+      i ++
+      local instruction @= instructions[i]
+      if instruction.kind == "newScope" (
+        depth ++
+      )
+      if instruction.kind == "popScope" (
+        if depth == 0 (
+          return instruction
+        )
+        depth --
+      )
+    )
+  )
+  if cur.kind == "popScope" (
+    local depth = 0
+    while i > 0 (
+      i --
+      local instruction @= instructions[i]
+      if instruction.kind == "newScope" (
+        if depth == 0 (
+          return instruction
+        )
+        depth ++
+      )
+      if instruction.kind == "popScope" (
+        depth --
+      )
+    )
+  )
+  
+  if ["jump","jumpIf","jumpNotIf"].contains(cur.kind) (
+    for i instructions.len (
+      local instruction @= instructions[i]
+      if instruction.kind == "label" (
+        if instruction.name == cur.label (
+          return instruction
+        )
+      )
+    )
+  )
+)

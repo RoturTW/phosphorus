@@ -202,7 +202,6 @@ class RTROslFuncValue extends RTRFuncValue (
     return self.func(args, inst, extra) ?? rtr.value.RTRNullValue()
   )
 )
-
 class RTRAstFuncValue extends RTRFuncValue (
   def init(array args, object body) (
     self.args @= args
@@ -230,6 +229,29 @@ class RTRAstFuncValue extends RTRFuncValue (
     void inst.popScope()
     
     return ret
+  )
+)
+class RTRBytecodeFuncValue extends RTRFuncValue (
+  def init(array args, array body) (
+    self.args @= args
+    self.body @= body
+  )
+  
+  def callFunc(object inst, array args) (
+    local s @= {}
+    for i self.args.len (
+      local a @= self.args[i]
+      local v @= args[i] ?? rtr.value.RTRNullValue()
+      s[a.name] @= [v, {}]
+    )
+    
+    void inst.newScope(s)
+    
+    local exprOut @= inst.runInstructions(self.body)
+    
+    void inst.popScope()
+    
+    return exprOut
   )
 )
 

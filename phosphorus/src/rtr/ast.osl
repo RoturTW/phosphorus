@@ -1,6 +1,7 @@
 
 class Parser (
-  def init(string text) (
+  def init(string text, scriptLocation) (
+    self.scriptLocation @= scriptLocation
     void self.tokenise(text)
   )
   
@@ -57,15 +58,18 @@ class Parser (
   def getPos() (
     local ln = 1
     local col = 0
+    local char = 0
     local i = self.pointer
     for t self.pointer (
       col ++
+      char += self.tokens[t].len
       if self.tokens[t] == "\n" (
         ln ++
         col = 0
+        char = 0
       )
     )
-    return { ln, col, i }
+    return { ln, col, char, i, loc: self.scriptLocation }
   )
   
   def tokenise(string text) (
@@ -101,7 +105,7 @@ class Parser (
   // statements
   def blockContent(top) (
     local statements @= []
-    local end = peek() == "}"
+    local end = peek() == "}" or self.atEnd()
     while !end (
       if top (
         local out @= self.topLevelStatement()
@@ -590,7 +594,7 @@ class Parser (
           return {
             kind: "unary",
             type: self.consume(),
-            expr: self.expression()
+            expr: self.callExpr()
           }
       )
     )

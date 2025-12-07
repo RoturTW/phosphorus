@@ -8,7 +8,7 @@ number resizingEdge = 0
 
 hoveredElement = 0
 
-menu = "console"
+string menu = "console"
 
 def alwaysUpdate() (
   self.hoveredElement = 0
@@ -34,7 +34,6 @@ def update(array area, array rawArea) (
           )
           open_rightclick devtools.rightclick.topbar_more
         ))
-        p.data @= devtools.rightclick.topbar_more
       )
     )
   )

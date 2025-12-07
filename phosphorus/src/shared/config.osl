@@ -43,5 +43,6 @@ class browser (
     string version = "1.0.0a"
     
     boolean usesCanvas = false
+    boolean useCompiler = true
   )
 )
