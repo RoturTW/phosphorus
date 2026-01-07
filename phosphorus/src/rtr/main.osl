@@ -1,4 +1,6 @@
 
+boolean debug = false
+
 class Module (
   def init(object ast) (
     void self.loadFromAst(ast)
@@ -235,7 +237,6 @@ class Module (
     
     for i self.events.len (
       local ev @= self.events[i][2]
-      
       if target.element != null (
         if ev.target.kind == "property" and ev.target.eventName == target.name (
           if ev.target.target.kind == "id" (
@@ -290,7 +291,10 @@ class Module (
     for i evs.len (
       void self.runBlock(evs[i].body)
     )
-    log "exec time" performance - p
+    
+    if rtr.main.debug (
+      log "exec time" performance - p
+    )
   )
   def runEventRaw(object target, object data) (
     local ev @= self.findEligible(target)[1]
@@ -302,7 +306,11 @@ class Module (
     void self.initTop()
     local p @= performance
     local out @= self.runBlock(ev.body)
-    log "exec time" performance - p
+    
+    if rtr.main.debug (
+      log "exec time" performance - p
+    )
+    
     return out
   )
   def runBlock(object block) (

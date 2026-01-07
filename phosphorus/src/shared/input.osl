@@ -7,14 +7,30 @@ def reset() (
 
 def update() (
   self.leftClick = mouse_left and !self.leftDown
-  self.leftDown = mouse_left
   if self.leftClick (
-    self.rwlLeftClick = true
+    void self.sendListeners("click", "left")
   )
+  self.leftDown = mouse_left
   
   // TODO: make a keybind system?
   if "`".onKeyDown() (
     void shared.settings.set("devtools", "open", !shared.settings.get("devtools", "open"))
-    //devtools.main.open = !devtools.main.open
+  )
+)
+
+object listeners = {}
+
+def addListener(string key, function callback, data) (
+  self.listeners[key] @= [callback, data]
+  return key
+)
+def delListener(string key) (
+  void self.listeners.delete(key)
+)
+
+def sendListeners(string ev, data) (
+  local list @= self.listeners.getValues()
+  for i list.len (
+    void list[i][1](ev, data, list[i][2])
   )
 )

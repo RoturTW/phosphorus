@@ -1,4 +1,6 @@
 
+number i = 0
+
 class Document (
   def init() (
     void self.createInsts()
@@ -6,6 +8,17 @@ class Document (
     self.started = false
     self.shouldBeAlive = false
     self.focused = false
+    
+    self.documentI = shared.document.i
+    shared.document.i ++
+    
+    self.listener @= shared.input.addListener("doc" ++ documentI, def(string ev, data, doc) -> (
+      if doc.rwlInst != null (
+        void doc.rwlInst.interactEvent(ev, data, {
+          rtr: doc.rtrInst
+        })
+      )
+    ), self)
   )
   
   def close() (

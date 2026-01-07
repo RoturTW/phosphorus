@@ -9,6 +9,8 @@ class RWLNode (
     self.updateGlobal()
   )
   def updateGlobal(area, context) (
+    self.updateTime = performance
+    
     self.id = null
     
     local id @= self.expectOnHeader("id", "str")
@@ -56,11 +58,11 @@ class RWLNode (
     
   )
   
-  def topUpdate() (
+  def interactUpdate() (
     
   )
   
-  def interactUpdate() (
+  def interactEvent() (
     
   )
   
@@ -625,9 +627,8 @@ class RWLButton extends RWLPositionedContainer (
     )
   )
   
-  def topUpdate(object context) (
-    //log "hi" context shared.input.rwlLeftClick
-    if shared.input.rwlLeftClick (
+  def interactEvent(string ev, data, object context) (
+    if ev == "click" and data == "left" (
       void context.rtr.runEvents({
         name: "click",
         element: self
@@ -646,6 +647,8 @@ class RWLScript extends RWLNode (
     
     void self.parse()
     void self.makeModule(inst)
+    
+    self.updateTime = performance
   )
   
   def parse() (
@@ -663,7 +666,7 @@ class RWLScript extends RWLNode (
   )
   
   def update(array area, object context) (
-    if self.mod != null (
+    if self.mod != null and false (
       void self.mod.runEvent({
         name: "onupdate"
       }, {})
@@ -1137,10 +1140,12 @@ class RWL (
       void self.elements[i].interactUpdate(context)
     )
     
-    //log context.top
-    
-    if context.top != null (
-      void context.top.topUpdate(context)
+    self.top @= context.top
+  )
+  
+  def interactEvent(string ev, data, object context) (
+    if self.top != null (
+      void self.top.interactEvent(ev, data, context)
     )
   )
   

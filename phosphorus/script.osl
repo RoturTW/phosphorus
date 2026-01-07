@@ -103,13 +103,15 @@ if !build.built (
   //void document.loadUrl(shared.url.Url("local://./main.rwl"))
   void layouts.shared.state.openTabDocument(document)
   
-  local document2 @= shared.document.Document()
-  void document2.loadUrl(shared.url.Url("local://./test.rwl"))
-  void layouts.shared.state.openTabDocument(document2)
-  
-  local document3 @= shared.document.Document()
-  void document3.loadUrl(shared.url.Url("local://./sidebartest.rwl"))
-  void layouts.shared.state.openTabDocument(document3)
+  if false (
+    local document2 @= shared.document.Document()
+    void document2.loadUrl(shared.url.Url("local://./test.rwl"))
+    void layouts.shared.state.openTabDocument(document2)
+    
+    local document3 @= shared.document.Document()
+    void document3.loadUrl(shared.url.Url("local://./sidebartest.rwl"))
+    void layouts.shared.state.openTabDocument(document3)
+  )
 ) else (
   local document3 @= shared.document.Document()
   void document3.loadUrl(shared.url.Url(shared.config.url.browser_scheme ++ "://home"))

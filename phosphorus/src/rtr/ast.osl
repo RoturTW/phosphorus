@@ -118,6 +118,7 @@ class Parser (
       if self.peek() == ";" (
         void self.consume()
       )
+      void self.consumeWhitespace()
       if self.peek() == "}" or self.atEnd() (
         end = true
       )
@@ -323,7 +324,8 @@ class Parser (
       
       return {
         kind: "expression",
-        expr
+        expr,
+        start, end: self.getPos()
       }
     ) else (
       throw "unexpected token '" ++ self.peek() ++ "'"
@@ -375,7 +377,8 @@ class Parser (
     if self.peek() == "*" (
       void self.consume()
       return {
-        kind: "any"
+        kind: "any",
+        start, end: self.getPos()
       }
     )
     
@@ -391,7 +394,8 @@ class Parser (
     
     return {
       kind,
-      name
+      name,
+      start, end: self.getPos()
     }
   )
   
@@ -465,6 +469,8 @@ class Parser (
   )
   
   def equality() (
+    local start @= self.getPos()
+    
     local expr @= self.comparison()
     void self.consumeWhitespace()
     
@@ -475,7 +481,8 @@ class Parser (
         kind: "binary",
         op,
         left: expr,
-        right
+        right,
+        start, end: self.getPos()
       }
     )
     
@@ -483,6 +490,8 @@ class Parser (
   )
   
   def comparison() (
+    local start @= self.getPos()
+    
     local expr @= self.term()
     
     local end = false
@@ -501,7 +510,8 @@ class Parser (
           kind: "binary",
           op,
           left: expr,
-          right
+          right,
+          start, end: self.getPos()
         }
       ) else (
         end = true
@@ -512,6 +522,8 @@ class Parser (
   )
   
   def term() (
+    local start @= self.getPos()
+    
     local expr @= self.factor()
     void self.consumeWhitespace()
     
@@ -522,7 +534,8 @@ class Parser (
         kind: "binary",
         op,
         left: expr,
-        right
+        right,
+        start, end: self.getPos()
       }
       void self.consumeWhitespace()
     )
@@ -531,6 +544,8 @@ class Parser (
   )
   
   def factor() (
+    local start @= self.getPos()
+    
     local expr @= self.otherBinary()
     void self.consumeWhitespace()
     
@@ -541,7 +556,8 @@ class Parser (
         kind: "binary",
         op,
         left: expr,
-        right
+        right,
+        start, end: self.getPos()
       }
       void self.consumeWhitespace()
     )
@@ -550,6 +566,8 @@ class Parser (
   )
   
   def otherBinary() (
+    local start @= self.getPos()
+    
     local expr @= self.coalescence()
     void self.consumeWhitespace()
     
@@ -560,7 +578,8 @@ class Parser (
         kind: "binary",
         op,
         left: expr,
-        right
+        right,
+        start, end: self.getPos()
       }
       void self.consumeWhitespace()
     )
@@ -569,6 +588,8 @@ class Parser (
   )
   
   def coalescence() (
+    local start @= self.getPos()
+    
     local expr @= self.unary()
     void self.consumeWhitespace()
     
@@ -579,7 +600,8 @@ class Parser (
         kind: "binary",
         op,
         left: expr,
-        right
+        right,
+        start, end: self.getPos()
       }
       void self.consumeWhitespace()
     )
@@ -588,13 +610,16 @@ class Parser (
   )
   
   def unary() (
+    local start @= self.getPos()
+    
     if self.peek(2) != "=" (
       switch self.peek() (
         case "-"; case "+"; case "!"; case "?"
           return {
             kind: "unary",
             type: self.consume(),
-            expr: self.callExpr()
+            expr: self.callExpr(),
+            start, end: self.getPos()
           }
       )
     )
@@ -704,6 +729,8 @@ class Parser (
   )
   
   def objProperty() (
+    local start = self.getPos()
+    
     local expr @= self.primary()
     void self.consumeWhitespace()
     
@@ -721,7 +748,8 @@ class Parser (
       expr @= {
         kind: "prop",
         obj: expr,
-        key
+        key,
+        start, end: self.getPos()
       }
       if self.peek() == "(" (
         void self.consume()
@@ -747,7 +775,8 @@ class Parser (
         expr @= {
           kind: "call",
           args,
-          func: expr
+          func: expr,
+          start, end: self.getPos()
         }
       )
       void self.consumeWhitespace()
@@ -799,6 +828,8 @@ class Parser (
   )
   
   def arr() (
+    local start @= self.getPos()
+    
     void self.expect("[")
     void self.consumeWhitespace()
     
@@ -822,11 +853,14 @@ class Parser (
     
     return {
       kind: "arr",
-      elems
+      elems,
+      start, end: self.getPos()
     }
   )
   
   def obj() (
+    local start @= self.getPos()
+    
     void self.expect("{")
     void self.consumeWhitespace()
     
@@ -854,7 +888,8 @@ class Parser (
     
     return {
       kind: "obj",
-      pairs
+      pairs,
+      start, end: self.getPos()
     }
   )
   

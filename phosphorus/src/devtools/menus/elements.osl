@@ -22,6 +22,14 @@ def drawElement(object element) (
     self.y -= 15
     goto 0 self.y
     
+    c shared.theme.seco
+    pen "opacity" 25 - min(performance - (element.updateTime ?? 0), 25)
+    frame frame.left y + 15 frame.right y - 15 (
+      pen "size" 1000
+      pen "down"
+      pen "up"
+    )
+    
     element.dvt_open ??= false or true
     
     goto self.x self.y
@@ -33,6 +41,8 @@ def drawElement(object element) (
       )
     )
     icon element.dvt_open ? "down" "right" .5 : c#shared.theme.text
+    
+    c user.theme.text
     
     text element.blockName ?? element.name 10 : chx#15
     if mouse_touching (
@@ -68,7 +78,7 @@ def drawElement(object element) (
           
           //self.maxX = max(self.maxX, x_position + (lines[i].len * 10))
           //text lines[i].trimText(frame.right - x_position - 17.5 / 8) 10 : c#shared.theme.text
-          text lines[i] 10 : c#shared.theme.text
+          text lines[i] 10
           
           cy -= line_height / 2
         )
@@ -96,7 +106,18 @@ def drawElement(object element) (
     )
   ) else if element.kind == "element" (
     self.y -= 15
+    
+    goto 0 self.y
+    c shared.theme.seco
+    pen "opacity" 25 - min(performance - (element.updateTime ?? 0), 25)
+    frame frame.left y + 15 frame.right y - 15 (
+      pen "size" 1000
+      pen "down"
+      pen "up"
+    )
+    
     goto self.x self.y
+    c shared.theme.text
     drawValue(element.value)
     drawHeader(element.header)
     local s = x_position
