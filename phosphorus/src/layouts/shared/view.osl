@@ -2,6 +2,9 @@
 def render(array area) (
   local contentArea @= rwl.area.copy(area)
   
+  void shared.stats.resetClient()
+  
+  local start = performance
   if devtools.main.open (
     local devtoolsData @= devtools.main ?? { width: 0, anchor: "l" }
     
@@ -19,16 +22,19 @@ def render(array area) (
   
     devtoolsArea[1] += 5
   )
+  shared.stats.devtoolsRenderTime += performance - start
   
   if layouts.shared.state.currentDocument != null (
     void layouts.shared.state.currentDocument.checkResp()
     void layouts.shared.state.currentDocument.render(contentArea)
   )
   
+  local start = performance
   if devtools.main != null (
     void devtools.main.alwaysUpdate()
   )
   if devtools.main.open (
     void devtools.main.update(devtoolsArea, area)
   )
+  shared.stats.devtoolsRenderTime += performance - start
 )

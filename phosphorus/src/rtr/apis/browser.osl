@@ -25,7 +25,7 @@ def addToMod(object doc, object mod) (
         return rtr.apis.browser.toRtr(value)
       )),
       setProperty: rtr.value.RTROslFuncValue(def(args) -> (
-        local value @= rtr.apis.browser.toRtr(args[3])
+        local value @= rtr.apis.browser.toOsl(args[3])
         void shared.settings.set(args[1].stringify(), args[2].stringify(), value)
       )),
     })
@@ -33,11 +33,11 @@ def addToMod(object doc, object mod) (
 )
 
 def toOsl(object value) (
-  local type @= val.getRtrType()
+  local type @= value.getRtrType()
   
   switch type.data.name (
     case "str"; case "num"; case "bool"
-      return val.value
+      return value.value
     default
       throw "cannot convert" + type.data.name + "to osl"
   )

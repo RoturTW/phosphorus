@@ -1,0 +1,26 @@
+
+// client
+number rwlRenderTime = 0
+
+number devtoolsRenderTime = 0
+number devtoolsRenderTimeLast = 0
+
+// worker
+number rwlUpdateTime = 0
+
+number rtrRunTime = 0
+number rtrCompileTime = 0
+
+def resetClient() (
+  self.rwlRenderTime = 0
+  
+  self.devtoolsRenderTimeLast = self.devtoolsRenderTime
+  self.devtoolsRenderTime = 0
+)
+
+def resetWorker() (
+  self.rwlUpdateTime = 0
+  
+  self.rtrRunTime = 0
+  self.rtrCompileTime = 0
+)

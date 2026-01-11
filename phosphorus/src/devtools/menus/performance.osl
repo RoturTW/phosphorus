@@ -1,0 +1,82 @@
+
+number y = 0
+
+array rwlRenderTimes = []
+array rwlUpdateTimes = []
+
+array rtrRunTimes = []
+array rtrCompileTimes = []
+
+array devtoolsRenderTimes = []
+
+def graph(string text, array data) (
+  local height = 150
+  
+  self.y -= height / 2
+  
+  goto 0 self.y
+  square frame.width - 25 height - 25 15 : c#shared.theme.prim
+  
+  frame frame.left + 5 self.y + (height / 2) - 5 frame.right - 5 self.y - (height / 2) + 5 (
+    goto 0 frame.top - 25
+    line frame.left 0 frame.right 0 : c#shared.theme.back w#2
+    
+    goto frame.left + 5 frame.top - 12.5
+    text text 8 : c#shared.theme.text
+    
+    local t = (round(data[-1] * 10) / 10).toStr()
+    goto frame.right - 5 + (t.len * -8) frame.top - 12.5
+    text t 8
+  )
+  
+  local renderData @= []
+  local total = 0
+  for i data.len (
+    total = max(total, data[i])
+  )
+  local graphTotal = max(total, 4)
+  for i data.len (
+    void renderData.append(data[i] / graphTotal)
+  )
+  
+  frame frame.left + 5 self.y + (height / 2) - 5 - 25 frame.right - 5 self.y - (height / 2) + 5 (
+    local i = 0
+    while i <= graphTotal (
+      goto 0 i / graphTotal - .5 * 2 * (frame.height / 2 - 2)
+      line frame.left 0 frame.right 0 : c#shared.theme.seco w#1
+      i += round(graphTotal / 5)
+    )
+    
+    goto 0 0
+    graph frame.width - 2 frame.height - 2 renderData : c#shared.theme.text w#2
+  )
+  
+  self.y -= height / 2 - 5
+)
+
+def addAndLimit(array arr, number num) (
+  void arr.append(num)
+  while arr.len > frame.width / 2 (
+    void arr.shift()
+  )
+)
+
+def update() (
+  self.y = frame.top + frame.scroll
+  local start = self.y
+  
+  addAndLimit(self.rwlRenderTimes, shared.stats.rwlRenderTime)
+  graph("RWL - Render time", self.rwlRenderTimes)
+  addAndLimit(self.rwlUpdateTimes, shared.stats.rwlUpdateTime)
+  graph("RWL - Update time", self.rwlUpdateTimes)
+  
+  addAndLimit(self.rtrRunTimes, shared.stats.rtrRunTime)
+  graph("RTR - Run time", self.rtrRunTimes)
+  addAndLimit(self.rtrCompileTimes, shared.stats.rtrCompileTime)
+  graph("RTR - Compile time", self.rtrCompileTimes)
+  
+  addAndLimit(self.devtoolsRenderTimes, shared.stats.devtoolsRenderTimeLast)
+  graph("Devtools - Render time", self.devtoolsRenderTimes)
+  
+  self.height = start - self.y
+)

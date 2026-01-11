@@ -15,7 +15,8 @@ object shared @= {
   tab_worker: import("./src/shared/tab_worker.osl"),
   input: import("./src/shared/input.osl"),
   settings: import("./src/shared/settings.osl"),
-  save: import("./src/shared/save.osl")
+  save: import("./src/shared/save.osl"),
+  stats: import("./src/shared/stats.osl")
 }
 
 object js @= {
@@ -84,7 +85,8 @@ if build.package.phosphorus.hasDevtools ?? true (
       console: import("./src/devtools/menus/console.osl"),
       network: import("./src/devtools/menus/network.osl"),
       storage: import("./src/devtools/menus/storage.osl"),
-      compiled: import("./src/devtools/menus/compiled.osl")
+      compiled: import("./src/devtools/menus/compiled.osl"),
+      performance: import("./src/devtools/menus/performance.osl")
     }
   }
 )

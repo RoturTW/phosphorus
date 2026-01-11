@@ -43,7 +43,9 @@ class RWLNode (
   def checkUpdate() (
     if self.needsUpdate (
       self.needsUpdate = false
+      local start = performance
       void self.updateFromCache()
+      shared.stats.rwlUpdateTime += performance - start
     )
     
     // used when this was a branch like system
@@ -72,6 +74,14 @@ class RWLNode (
   
   def renderDevtools() (
     
+  )
+  
+  def deleteElem() (
+    if self.children != null (
+      for i self.children.len (
+        void self.children[i].deleteElem()
+      )
+    )
   )
   
   def expectOnHeader(string key, string type) (
@@ -661,7 +671,7 @@ class RWLScript extends RWLNode (
   def makeModule(object inst) (
     if self.ast != null (
       self.mod @= rtr.main.Module(self.ast)
-      void inst.rtrInst.addModule(self.mod)
+      self.modKey @= inst.rtrInst.addModule(self.mod)
     )
   )
   
@@ -677,6 +687,10 @@ class RWLScript extends RWLNode (
     void self.mod.runEvent({
       name: "onload",
     }, {})
+  )
+  
+  def deleteElem() (
+    void mod.inst.delModule(self.modKey)
   )
 )
 
@@ -1125,9 +1139,15 @@ class RWL (
       self._lastY = y
     )
     
-    if self.needsUpdate (
-      void self.update(area)
+    self.renderArea @= area
+  )
+  
+  def checkIfNeedsUpdate() (
+    if self.needsUpdate and self.renderArea != null (
+      local start = performance
+      void self.update(self.renderArea)
       self.needsUpdate = false
+      shared.stats.rwlUpdateTime += performance - start
     )
   )
   
@@ -1162,8 +1182,13 @@ class RWL (
   )
   
   def render(array area) (
+    // should be done on worker, but creates slowness
+    local start = performance
     void self.checkUpdate(area)
+    void self.checkIfNeedsUpdate()
+    shared.stats.rwlUpdateTime += performance - start
   
+    local start = performance
     self.worker.area @= area
     if self.errored (
       goto rwl.area.centerX(area) rwl.area.centerY(area)
@@ -1175,6 +1200,7 @@ class RWL (
     )
     
     void rwl.main.RenderElements(self.elements)
+    shared.stats.rwlRenderTime += performance - start
   )
   
   def getElement(string id) (

@@ -62,7 +62,7 @@ def set(string category, string entry, value) (
   )
   
   if entryData.type != typeof(value) (
-    throw "expected" + entry.type + "for" + category ++ "/" ++ entry + "but got" + typeof(value)
+    throw "expected" + entryData.type + "for" + category ++ "/" ++ entry + "but got" + typeof(value)
   )
   self._data[category][entry] @= value
   void self.write()

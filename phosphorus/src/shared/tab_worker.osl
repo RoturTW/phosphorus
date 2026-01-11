@@ -13,11 +13,13 @@ def onframe() (
     )
   )
   if self.document != null and self.document.focused (
+    void shared.stats.resetWorker()
     void self.document.rwlInst.interactUpdate({
       rtr: self.document.rtrInst
     })
     void self.document.rtrUpdate()
     //void self.document.rwlInst.checkElemUpdate()
+    //void self.document.rwlInst.checkIfNeedsUpdate()
     local mods @= self.document.rtrInst.modules.getValues()
     for i mods.len (
       void mods[i].runEventQueue()

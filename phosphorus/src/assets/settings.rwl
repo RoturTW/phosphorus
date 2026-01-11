@@ -84,6 +84,9 @@ root {
       document.vars.callbacks = {};
       document.vars.valuefunctions = {};
       
+      content := document.getElement("content");
+      content.deleteChildren();
+      
       generateProperty := (name, type, value, callback) ~ {
         parent := document.getElement("content");
         
@@ -131,19 +134,26 @@ root {
           button.id = id;
           section.addChild(button);
           
-          if (value(name)) {
-            icon := document.createIconElement("home");
-            icon.color = theme.text;
-            icon.scale = 0.7;
-            button.addChild(icon);
-          }
+          icon := document.createIconElement("tick");
+          if (!value(name))
+            icon.addFlag("Hidden");
+          icon.color = theme.text;
+          icon.scale = 0.55;
+          button.addChild(icon);
           
           txt := "event(#" + id + ":click) {\n";
+          txt += "  val := document.vars.valuefunctions['" + id + "']('" + name + "');\n";
           txt += "  document.vars.callbacks['" + id + "'](\n";
           txt += "    '" + name + "',\n";
           txt += "    '" + type + "',\n";
-          txt += "    document.vars.valuefunctions['" + id + "']('" + name + "')\n";
+          txt += "    val\n";
           txt += "  );\n";
+          txt += "  icon := document.getElement('" + id + "').children[0];\n";
+          txt += "  if (not(val)) {\n";
+          txt += "    icon.removeFlag(\"Hidden\");\n";
+          txt += "  } else {\n";
+          txt += "    icon.addFlag(\"Hidden\");\n";
+          txt += "  }\n";
           txt += "}";
           
           script := document.createScript(txt);
@@ -171,7 +181,7 @@ root {
           generateProperty(prop.name, prop.type, (name) ~ {
             return($$brwsr.settings.getProperty(document.vars.location, name));
           }, (name, type, value) ~ {
-            log(":3", name, type, value);
+            $$brwsr.settings.setProperty(document.vars.location, name, not(value));
           });
         }
       };

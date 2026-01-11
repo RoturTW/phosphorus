@@ -271,6 +271,8 @@ class Module (
   )
   
   def runEventQueue() (
+    local start = performance
+    
     for i self.eventQueue.len (
       local ev @= self.eventQueue.shift()
       
@@ -281,6 +283,8 @@ class Module (
         void self.runEventRaw(ev[2], ev[3])
       )
     )
+    
+    shared.stats.rtrRunTime += performance - start
   )
   
   def runEventsRaw(object target, object data) (
@@ -333,6 +337,7 @@ class Module (
           time: performance - start
         })
       )
+      shared.stats.rtrCompileTime += performance - start
     )
     if block.compile != null and block.compile != false (
       local out @= self.runInstructions(block.compile)
@@ -794,6 +799,10 @@ class RTR (
     mod.inst @= self
     self.modules[key] @= mod
     return key
+  )
+  
+  def delModule(string key) (
+    void self.modules.delete(key)
   )
   
   def startModules() (

@@ -123,6 +123,11 @@ class RTRElement extends rtr.value.RTRValue (
     local k = key.stringify()
     
     switch k (
+      // properties
+      case "children"
+        return rtr.value.RTRArrValue(self.elem.children.map(e -> rtr.apis.rwl.RTRElement(e)))
+      
+      // methods
       case "toggleFlag"
         return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
           local flags @= elem.elem.header.flags
@@ -177,6 +182,7 @@ class RTRElement extends rtr.value.RTRValue (
           if args[1].isRwlElem != true (
             throw "argument is not rwl element"
           )
+          
           void elem.elem.children.append(args[1].elem)
           
           void elem.elem.updateParentFromCache()
@@ -186,6 +192,7 @@ class RTRElement extends rtr.value.RTRValue (
           if elem.elem.children == null (
             throw elem.kind + "doesnt contain children"
           )
+          
           local idx = args.len > 0 ? args[1].numbify() 1
           local out @= elem.elem.children[idx]
           if out != null (
@@ -193,10 +200,24 @@ class RTRElement extends rtr.value.RTRValue (
           ) else (
             out @= rtr.value.RTRNullValue()
           )
+          void elem.elem.children[idx].delete()
           void elem.elem.children.delete(idx)
           
           void elem.elem.updateParentFromCache()
           return out
+        ), self)
+      case "deleteChildren"
+        return rtr.value.RTROslFuncValue(def(args, _inst, elem) -> (
+          if elem.elem.children == null (
+            throw elem.kind + "doesnt contain children"
+          )
+          
+          for i elem.elem.children.len (
+            void elem.elem.children[i].deleteElem()
+          )
+          elem.elem.children @= []
+          
+          void elem.elem.updateParentFromCache()
         ), self)
     )
     
