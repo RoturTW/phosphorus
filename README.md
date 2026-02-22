@@ -1,7 +1,7 @@
 
 Phosphorus is the main rotur web engine (eventually) powering browsers like summit on [originOS](https://github.com/Mistium/Origin-OS) :3
 
-This repo specifically is the osl version of phosphorus
+This repo specifically is the osl version of phosphorus, the rust version is [here](https://github.com/RoturTW/phosphorus.rs/)
 
 <img width="1252" height="710" alt="phosphorus" src="https://raw.githubusercontent.com/RoturTW/phosphorus/refs/heads/main/assets/phosphorus.png" />
 
